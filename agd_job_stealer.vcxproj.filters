@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="jobsystem">
+      <UniqueIdentifier>{9e456330-9ae9-4560-998d-5d49d40c3a52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="optick">
+      <UniqueIdentifier>{08b4fe5f-8fc7-4c83-920b-80cb8191bd19}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp">
+      <Filter>jobsystem</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_capi.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_core.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_gpu.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_gpu.d3d12.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_gpu.vulkan.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_message.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_miniz.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_serialization.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+    <ClCompile Include="optick\src\optick_server.cpp">
+      <Filter>optick</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="optick\src\optick.config.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_capi.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_common.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_core.freebsd.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_core.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_core.linux.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_core.macos.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_core.platform.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_core.win.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_gpu.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_memory.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_message.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_miniz.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_serialization.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+    <ClInclude Include="optick\src\optick_server.h">
+      <Filter>optick</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
