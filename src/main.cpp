@@ -26,6 +26,8 @@ constexpr bool isRunningParallel = false;
 */
 #include "../optick/src/optick.h"
 #include "argument_parser.h"
+
+// NO :(
 using namespace std;
 
 // Don't change this macros (unlsess for removing Optick if you want) - if you need something
@@ -104,20 +106,22 @@ int main(int argc, char** argv)
 	);
 
 	ArgumentParser parser(argc, argv);
+	// Take max of returned threads and 2, so that if hardware_concurrency returns < 2, we at least have one worker
 	// Keep one core "free" so that OS has no problems to schedule main thread
-	uint32_t maxCores = std::thread::hardware_concurrency() - 1;
+	uint32_t maxCores = max(thread::hardware_concurrency(), 2U) - 1;
+
 	uint32_t cores = maxCores;
-	if (parser.CheckIfExists("-c", "--cores"))
+	if (parser.CheckIfExists("-t", "--threads"))
 	{
-		cores = parser.GetInt("-c", "--cores");
+		cores = parser.GetInt("-t", "--threads");
 		if (cores > maxCores)
 		{
 			cores = maxCores;
-			printf("Specified number of cores is to much! Defaulting to: %d\n", cores);
+			printf("Specified number of threads is to much! Defaulting to: %d\n", cores);
 		}
 		else
 		{
-			printf("Specified number of cores: %d\n", cores);
+			printf("Specified number of threads: %d\n", cores);
 
 		}
 	}
