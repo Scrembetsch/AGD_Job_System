@@ -89,5 +89,8 @@
     <ClInclude Include="optick\src\optick_server.h">
       <Filter>optick</Filter>
     </ClInclude>
+    <ClInclude Include="src\argument_parser.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
