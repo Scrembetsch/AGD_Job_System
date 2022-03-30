@@ -57,7 +57,7 @@ constexpr bool isRunningParallel = false;
 #include "argument_parser.h"
 using namespace std;
 
-// Don't change this macros (unlsess for removing Optick if you want) - if you need something
+// Don't change this macros (unless for removing Optick if you want) - if you need something
 // for your local testing, create a new one for yourselves.
 #define MAKE_UPDATE_FUNC(NAME, DURATION) \
 	void Update##NAME() { \
