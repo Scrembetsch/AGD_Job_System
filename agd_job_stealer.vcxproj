@@ -167,6 +167,7 @@
     <ClInclude Include="optick\src\optick_miniz.h" />
     <ClInclude Include="optick\src\optick_serialization.h" />
     <ClInclude Include="optick\src\optick_server.h" />
+    <ClInclude Include="src\argument_parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

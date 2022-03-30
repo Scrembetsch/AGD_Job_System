@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <thread>
 #include <atomic>
+#include <stdio.h>
 
 // Use this to switch betweeen serial and parallel processing (for perf. comparison)
 constexpr bool isRunningParallel = false;
@@ -24,7 +25,7 @@ constexpr bool isRunningParallel = false;
 * ===============================================
 */
 #include "../optick/src/optick.h"
-
+#include "argument_parser.h"
 using namespace std;
 
 // Don't change this macros (unlsess for removing Optick if you want) - if you need something
@@ -86,7 +87,7 @@ void UpdateParallel()
 	UpdateSound();
 }
 
-int main()
+int main(int argc, char** argv)
 {
 	/*
 	* =======================================
@@ -101,6 +102,28 @@ int main()
 		[](void* p) { operator delete(p); },
 		[]() { /* Do some TLS initialization here if needed */ }
 	);
+
+	ArgumentParser parser(argc, argv);
+	uint32_t maxCores = std::thread::hardware_concurrency() - 1;
+	uint32_t cores = maxCores;
+	if (parser.CheckIfExists("-c", "--cores"))
+	{
+		cores = parser.GetInt("-c", "--cores");
+		if (cores > maxCores)
+		{
+			cores = maxCores;
+			printf("Specified number of cores is to much! Defaulting to: %d\n", cores);
+		}
+		else
+		{
+			printf("Specified number of cores: %d\n", cores);
+
+		}
+	}
+	else
+	{
+		printf("No number of cores specified. Defaulting to: %d\n", cores);
+	}
 
 	OPTICK_THREAD("MainThread");
 
