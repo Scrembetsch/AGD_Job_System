@@ -104,6 +104,7 @@ int main(int argc, char** argv)
 	);
 
 	ArgumentParser parser(argc, argv);
+	// Keep one core "free" so that OS has no problems to schedule main thread
 	uint32_t maxCores = std::thread::hardware_concurrency() - 1;
 	uint32_t cores = maxCores;
 	if (parser.CheckIfExists("-c", "--cores"))
