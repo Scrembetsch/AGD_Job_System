@@ -1,5 +1,34 @@
 /*
- * Please add your names and UIDs in the form: Name <uid>, ...
+ * Handl Anja <gs20m005>, Tributsch Harald <gs20m008>, Michael Leithner <gs20m012>
+  
+------------------------------------------------------------------------------------
+TODO:
+
+0. get cpu and thread cores, cmd args (threads, isRunningParallel, ...)
+bis 04.04.
+
+1. easy scheduler for multiple worker with deques - Harald
+- Jobs
+- Job Manager (scheduler)
+    - starts threads
+    - notify of finished?
+- worker
+    - job deque with locks
+    - get next job
+
+2. dependencies - Michael
+- dependency on other Jobs
+    - can execute?
+- can have children
+
+3. job stealing - Anja
+    - steal from other worker
+
+bis 15.04.
+4. lockless - Michael
+
+------------------------------------------------------------------------------------
+
  */
 
 #include <cstdio>
@@ -30,7 +59,7 @@ constexpr bool isRunningParallel = false;
 // NO :(
 using namespace std;
 
-// Don't change this macros (unlsess for removing Optick if you want) - if you need something
+// Don't change this macros (unless for removing Optick if you want) - if you need something
 // for your local testing, create a new one for yourselves.
 #define MAKE_UPDATE_FUNC(NAME, DURATION) \
 	void Update##NAME() { \
