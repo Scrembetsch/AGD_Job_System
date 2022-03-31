@@ -20,7 +20,7 @@ public:
 	bool IsRunning() const;
 
 	// HINT: Probably adjust to Job* when adding dependencies
-	void AddJob(const Job& job);
+	void AddJob(Job* job);
 	bool AllJobsFinished() const;
 
 private:
@@ -28,7 +28,7 @@ private:
 	void SetThreadAffinity();
 
 	void WaitForJob();
-	bool GetJob(Job &);
+	bool GetJob(Job** job);
 
 	bool mIsRunning;
 	uint32_t mId;
@@ -38,7 +38,7 @@ private:
 
 	// Could also move these two into a container class, but this should be less work for lock-less
 	std::mutex mJobQueueMutex;
-	std::queue<Job> mJobQueue;
+	std::queue<Job*> mJobQueue;
 
 	std::atomic_bool mJobsTodo;
 	std::atomic_bool mJobRunning;

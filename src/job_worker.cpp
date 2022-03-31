@@ -66,7 +66,7 @@ bool JobWorker::IsRunning() const
 	return mIsRunning;
 }
 
-void JobWorker::AddJob(const Job& job)
+void JobWorker::AddJob(Job* job)
 {
 	lock_guard lock(mJobQueueMutex);
 	mJobQueue.push(job);
@@ -100,11 +100,11 @@ void JobWorker::Run()
 		{
 			// TODO: return Job * instead of bool
 			//if (Job* job = GetJob())
-			Job job(nullptr, "invalid");
-			if (GetJob(job))
+			Job* job = nullptr;
+			if (GetJob(&job))
 			{
-				job.Execute();
-				job.Finish();
+				job->Execute();
+				job->Finish();
 				mJobRunning = false;
 			}
 			else
@@ -120,7 +120,7 @@ void JobWorker::Run()
 }
 
 // TODO: return Job * instead of bool
-bool JobWorker::GetJob(Job &job)
+bool JobWorker::GetJob(Job** job)
 {
 	if (mJobQueue.empty())
 	{
@@ -128,9 +128,9 @@ bool JobWorker::GetJob(Job &job)
 	}
 
 	lock_guard lock(mJobQueueMutex);
-	if (mJobQueue.front().CanExecute())
+	if (mJobQueue.front()->CanExecute())
 	{
-		job = mJobQueue.front();
+		*job = mJobQueue.front();
 		mJobQueue.pop();
 		if (mJobQueue.empty())
 		{
@@ -143,13 +143,13 @@ bool JobWorker::GetJob(Job &job)
 	// currently just re-pushing current first element to get the next
 	else if (mJobQueue.size() > 1)
 	{
-		job = mJobQueue.front();
+		*job = mJobQueue.front();
 		mJobQueue.pop();
-		mJobQueue.push(job);
+		mJobQueue.push(*job);
 
-		if (mJobQueue.front().CanExecute())
+		if (mJobQueue.front()->CanExecute())
 		{
-			job = mJobQueue.front();
+			*job = mJobQueue.front();
 			mJobQueue.pop();
 			if (mJobQueue.empty())
 			{

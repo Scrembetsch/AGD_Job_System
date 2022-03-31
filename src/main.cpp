@@ -118,6 +118,8 @@ void UpdateParallel(JobSystem& jobSystem)
 {
 	OPTICK_EVENT();
 
+	std::vector<Job*> jobs;
+
 #ifdef TEST_DEPENDENCIES
 	// Test if adding rendering first still respect dependencies
 	Job rendering(&UpdateRendering, "rendering");
@@ -127,21 +129,30 @@ void UpdateParallel(JobSystem& jobSystem)
 	jobSystem.AddJob(rendering);
 #endif
 
-	jobSystem.AddJob(Job(&UpdateInput, "input"));
+	jobs.push_back(new Job(&UpdateInput, "input"));
 #ifndef TEST_DEPENDENCIES
-	jobSystem.AddJob(Job(&UpdatePhysics, "physics"));
-	jobSystem.AddJob(Job(&UpdateCollision, "collision"));
+	jobs.push_back(new Job(&UpdatePhysics, "physics"));
+	jobs.push_back(new Job(&UpdateCollision, "collision"));
 #endif
-	jobSystem.AddJob(Job(&UpdateAnimation, "animation"));
-	jobSystem.AddJob(Job(&UpdateParticles, "particles"));
-	jobSystem.AddJob(Job(&UpdateGameElements, "gameElements"));
-	jobSystem.AddJob(Job(&UpdateSound, "sound"));
+	jobs.push_back(new Job(&UpdateAnimation, "animation"));
+	jobs.push_back(new Job(&UpdateParticles, "particles"));
+	jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
+	jobs.push_back(new Job(&UpdateSound, "sound"));
 #ifdef TEST_DEPENDENCIES
-	jobSystem.AddJob(physics);
-	jobSystem.AddJob(collision);
+	jobs.push_back(new AddJob(physics);
+	jobs.push_back(new AddJob(collision);
 #endif
+	for (uint32_t i = 0; i < jobs.size(); i++)
+	{
+		jobSystem.AddJob(jobs[i]);
+	}
+
 
 	while (!jobSystem.AllJobsFinished());
+	for (uint32_t i = 0; i < jobs.size(); i++)
+	{
+		delete jobs[i];
+	}
 #ifdef _DEBUG
 	printf("All jobs done!\n");
 #endif

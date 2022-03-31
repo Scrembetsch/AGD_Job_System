@@ -12,7 +12,7 @@ JobSystem::~JobSystem()
 	delete[] mWorkers;
 }
 
-void JobSystem::AddJob(const Job& job)
+void JobSystem::AddJob(Job* job)
 {
 	mWorkers[mCurrentWorkerId].AddJob(job);
 	mCurrentWorkerId = (++mCurrentWorkerId) % mNumWorkers;

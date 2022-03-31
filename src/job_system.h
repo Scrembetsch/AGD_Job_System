@@ -11,7 +11,7 @@ public:
 	~JobSystem();
 
 	// HINT: Probably best to change to Job* when adding dependencies
-	void AddJob(const Job& job);
+	void AddJob(Job* job);
 	bool AllJobsFinished() const;
 private:
 	// Q: Should we change this to atomic counter? Shouldn't make too much difference if multiple threads add jobs at the same time
