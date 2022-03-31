@@ -52,7 +52,7 @@ void JobWorker::SetThreadAffinity()
 	if (dw == 0)
 	{
 		DWORD dwErr = GetLastError();
-		HTL_LOGE("SetThreadAffinityMask failed, GLE=%llu", dwErr);
+		HTL_LOGE("SetThreadAffinityMask failed, GLE=%lu", dwErr);
 	}
 #endif
 }
