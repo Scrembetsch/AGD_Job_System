@@ -70,7 +70,6 @@ using namespace std;
 		do { \
 			end = chrono::high_resolution_clock::now(); \
 		} while (chrono::duration_cast<chrono::microseconds>(end - start).count() < (DURATION)); \
-		printf("Jobs done! %s\n", __func__); \
 	} \
 
 // You can create other functions for testing purposes but those here need to run in your job system
@@ -83,18 +82,6 @@ MAKE_UPDATE_FUNC(Particles, 800) // depends on Collision
 MAKE_UPDATE_FUNC(GameElements, 2400) // depends on Physics
 MAKE_UPDATE_FUNC(Rendering, 2000) // depends on Animation, Particles, GameElements
 MAKE_UPDATE_FUNC(Sound, 1000) // no dependencies
-
-void UpdateCustom()
-{
-	OPTICK_EVENT();
-	auto start = chrono::high_resolution_clock::now(); \
-	decltype(start) end; \
-	do {
-		\
-			end = chrono::high_resolution_clock::now(); \
-	} while (chrono::duration_cast<chrono::microseconds>(end - start).count() < (500)); \
-	printf("Jobs done! %s\n", __func__); \
-}
 
 void UpdateSerial()
 {
@@ -121,7 +108,6 @@ void UpdateParallel(JobSystem& jobSystem)
 {
 	OPTICK_EVENT();
 
-	jobSystem.AddJob(Job(&UpdateCustom));
 	jobSystem.AddJob(Job(&UpdateInput));
 	jobSystem.AddJob(Job(&UpdatePhysics));
 	jobSystem.AddJob(Job(&UpdateCollision));
@@ -131,10 +117,10 @@ void UpdateParallel(JobSystem& jobSystem)
 	jobSystem.AddJob(Job(&UpdateRendering));
 	jobSystem.AddJob(Job(&UpdateSound));
 
-	while (!jobSystem.AllJobsFinished())
-	{
-		bool t = false;
-	}
+	while (!jobSystem.AllJobsFinished());
+#ifdef _DEBUG
+	printf("Jobs done!\n");
+#endif
 }
 
 uint32_t GetNumThreads(const ArgumentParser& argParser)

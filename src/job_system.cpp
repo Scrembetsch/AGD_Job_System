@@ -2,25 +2,27 @@
 
 JobSystem::JobSystem(uint32_t numThreads)
 	: mCurrentWorkerId(0)
+	, mNumWorkers(numThreads)
+	, mWorkers(new JobWorker[numThreads])
 {
-	mWorkers.resize(numThreads);
-	//for (uint32_t i = 0; i < numThreads; i++)
-	//{
-	//	mWorkers.emplace_back();
-	//}
+}
+
+JobSystem::~JobSystem()
+{
+	delete[] mWorkers;
 }
 
 void JobSystem::AddJob(const Job& job)
 {
 	mWorkers[mCurrentWorkerId].AddJob(job);
-	mCurrentWorkerId = (++mCurrentWorkerId) % mWorkers.size();
+	mCurrentWorkerId = (++mCurrentWorkerId) % mNumWorkers;
 }
 
 bool JobSystem::AllJobsFinished() const
 {
-	for (const auto& worker : mWorkers)
+	for (uint32_t i = 0; i < mNumWorkers; i++)
 	{
-		if (!worker.AllJobsFinished())
+		if (!mWorkers[i].AllJobsFinished())
 		{
 			return false;
 		}

@@ -9,31 +9,38 @@
 
 class JobWorker
 {
+private:
+	// Use static counter to signal Optick which worker this is
+	static std::atomic_uint32_t sWorkerCounter;
+
 public:
 	JobWorker();
 	~JobWorker();
-	JobWorker(const JobWorker& other);
 
-	void SetIsRunning(bool running);
 	bool IsRunning() const;
 
+	// HINT: Probably adjust to Job* when adding dependencies
 	void AddJob(const Job& job);
 	bool AllJobsFinished() const;
+
 private:
 	void Run();
+	void SetThreadAffinity();
 
 	void WaitForJob();
 	bool GetJob(Job& job);
 	bool CanExecute(const Job& job) const;
 
 	bool mIsRunning;
+	uint32_t mId;
 	std::thread mThread;
 	std::mutex mAwakeMutex;
 	std::condition_variable mAwakeCondition;
 
-	// Could also move these to in a container class, but this should be less work for lock-less
+	// Could also move these two into a container class, but this should be less work for lock-less
 	std::mutex mJobQueueMutex;
 	std::queue<Job> mJobQueue;
+
 	std::atomic_bool mJobsTodo;
 	std::atomic_bool mJobRunning;
 };

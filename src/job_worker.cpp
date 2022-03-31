@@ -1,29 +1,60 @@
 #include "job_worker.h"
 
+#include "log.h"
+#include "../optick/src/optick.h"
+
+#include <string>
+
+#ifdef _WIN32
+	#include <Windows.h>
+	#include <processthreadsapi.h>
+	#ifdef AddJob
+		#undef AddJob
+	#endif
+	#ifdef GetJob
+		#undef GetJob
+	#endif
+#endif
+
 using lock_guard = std::lock_guard<std::mutex>;
 using unique_lock = std::unique_lock<std::mutex>;
+
+std::atomic_uint32_t JobWorker::sWorkerCounter = 0;
 
 JobWorker::JobWorker()
 	: mIsRunning(true)
 	, mJobsTodo(false)
+	, mJobRunning(false)
+	, mId(sWorkerCounter++)
 {
-	mThread = std::thread([this]() { Run(); });
+	mThread = std::thread([this]()
+	{
+		std::string workerName("Worker ");
+		workerName += std::to_string(mId);
+		OPTICK_THREAD(workerName.c_str());
+
+		Run();
+	});
+	SetThreadAffinity();
 }
 
 JobWorker::~JobWorker()
 {
-}
-
-JobWorker::JobWorker(const JobWorker& other)
-	: mIsRunning(other.mIsRunning)
-{
-	mThread = std::thread([this]() { Run(); });
-}
-
-void JobWorker::SetIsRunning(bool running)
-{
-	mIsRunning = running;
+	mIsRunning = false;
 	mAwakeCondition.notify_one();
+	mThread.join();
+}
+
+void JobWorker::SetThreadAffinity()
+{
+#ifdef _WIN32
+	DWORD_PTR dw = SetThreadAffinityMask(mThread.native_handle(), DWORD_PTR(1) << mId);
+	if (dw == 0)
+	{
+		DWORD dwErr = GetLastError();
+		HTL_LOGE("SetThreadAffinityMask failed, GLE=%llu", dwErr);
+	}
+#endif
 }
 
 bool JobWorker::IsRunning() const
@@ -34,6 +65,7 @@ bool JobWorker::IsRunning() const
 void JobWorker::AddJob(const Job& job)
 {
 	lock_guard lock(mJobQueueMutex);
+
 	mJobQueue.push(job);
 	mJobsTodo = true;
 	mAwakeCondition.notify_one();
@@ -41,7 +73,7 @@ void JobWorker::AddJob(const Job& job)
 
 bool JobWorker::AllJobsFinished() const
 {
-	return !(mJobsTodo || mJobRunning);
+	return !(mJobsTodo | mJobRunning);
 }
 
 void JobWorker::Run()
@@ -54,11 +86,15 @@ void JobWorker::Run()
 		}
 		else
 		{
-			Job job;
+			Job job(nullptr);
 			if (GetJob(job))
 			{
 				job.JobFunction();
 				mJobRunning = false;
+			}
+			else
+			{
+				std::this_thread::yield();
 			}
 		}
 	}

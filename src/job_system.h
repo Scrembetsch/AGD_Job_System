@@ -8,13 +8,16 @@ class JobSystem
 {
 public:
 	JobSystem(uint32_t numThreads);
-	~JobSystem() = default;
+	~JobSystem();
 
-	// Copy job or allocate on heap and pass pointer?
+	// HINT: Probably best to change to Job* when adding dependencies
 	void AddJob(const Job& job);
 	bool AllJobsFinished() const;
 private:
-	// Not atomic because it shouldn't be too bad if multiple threads add jobs at the same time
+	// Q: Should we change this to atomic counter? Shouldn't make too much difference if multiple threads add jobs at the same time
 	uint32_t mCurrentWorkerId;
-	std::vector<JobWorker> mWorkers;
+
+	// Use basic array instead of vector, because vector complains about deleted copy-constructor
+	uint32_t mNumWorkers;
+	JobWorker* mWorkers;
 };
