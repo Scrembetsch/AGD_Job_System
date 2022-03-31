@@ -28,8 +28,7 @@ private:
 	void SetThreadAffinity();
 
 	void WaitForJob();
-	bool GetJob(Job& job);
-	bool CanExecute(const Job& job) const;
+	bool GetJob(Job &);
 
 	bool mIsRunning;
 	uint32_t mId;

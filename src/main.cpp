@@ -31,35 +31,38 @@ bis 15.04.
 
  */
 
-#include <cstdio>
-#include <cstdint>
+
+ /* ===============================================
+ * Optick is a free, light-weight C++ profiler
+ * We use it in this exercise to make it easier for
+ * you to profile your jobsystem and see what's
+ * happening (dependencies, locking, comparison to
+ * serial, ...)
+ *
+ * It's not mandatory to use it, just advised. If
+ * you dislike it or have problems with it, feel
+ * free to remove it from the solution
+ * ===============================================*/
+#include "../optick/src/optick.h"
+
+#include "argument_parser.h"
+#include "job_system.h"
+
 #include <thread>
 #include <atomic>
-#include <stdio.h>
+#include <iostream> // using cout to print thread_id, otherwise would need to create a stringstream
 
 // Use this to switch between serial and parallel processing (for perf. comparison)
 // configurable with cmd arg --parallel or -p
 bool isRunningParallel = false;
 
-/*
-* ===============================================
-* Optick is a free, light-weight C++ profiler
-* We use it in this exercise to make it easier for
-* you to profile your jobsystem and see what's
-* happening (dependencies, locking, comparison to
-* serial, ...)
-*
-* It's not mandatory to use it, just advised. If
-* you dislike it or have problems with it, feel
-* free to remove it from the solution
-* ===============================================
-*/
-#include "../optick/src/optick.h"
-#include "argument_parser.h"
-#include "job_system.h"
-
 // NO :(
 using namespace std;
+
+// custom defines for easier testing
+// TODO: move together with macros from other files to defines.h file
+//#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
+//#define TEST_DEPENDENCIES // test if correct dependencies are met
 
 // Don't change this macros (unless for removing Optick if you want) - if you need something
 // for your local testing, create a new one for yourselves.
@@ -71,6 +74,7 @@ using namespace std;
 		do { \
 			end = chrono::high_resolution_clock::now(); \
 		} while (chrono::duration_cast<chrono::microseconds>(end - start).count() < (DURATION)); \
+		cout << "job \"" << __func__ << "\" on thread #" << this_thread::get_id() << " done!\n"; \
 	} \
 
 // You can create other functions for testing purposes but those here need to run in your job system
@@ -88,13 +92,14 @@ void UpdateSerial()
 {
 	OPTICK_EVENT();
 
+	// Test if adding rendering first still respect dependencies
+	UpdateRendering();
 	UpdateInput();
 	UpdatePhysics();
 	UpdateCollision();
 	UpdateAnimation();
 	UpdateParticles();
 	UpdateGameElements();
-	UpdateRendering();
 	UpdateSound();
 
 #ifdef _DEBUG
@@ -113,14 +118,28 @@ void UpdateParallel(JobSystem& jobSystem)
 {
 	OPTICK_EVENT();
 
-	jobSystem.AddJob(Job(&UpdateInput));
-	jobSystem.AddJob(Job(&UpdatePhysics));
-	jobSystem.AddJob(Job(&UpdateCollision));
-	jobSystem.AddJob(Job(&UpdateAnimation));
-	jobSystem.AddJob(Job(&UpdateParticles));
-	jobSystem.AddJob(Job(&UpdateGameElements));
-	jobSystem.AddJob(Job(&UpdateRendering));
-	jobSystem.AddJob(Job(&UpdateSound));
+#ifdef TEST_DEPENDENCIES
+	// Test if adding rendering first still respect dependencies
+	Job rendering(&UpdateRendering, "rendering");
+	Job collision(&UpdateCollision, "collision", rendering);
+	Job physics(&UpdatePhysics, "physics", collision);
+	// -> physics -> collision -> rendering
+	jobSystem.AddJob(rendering);
+#endif
+
+	jobSystem.AddJob(Job(&UpdateInput, "input"));
+#ifndef TEST_DEPENDENCIES
+	jobSystem.AddJob(Job(&UpdatePhysics, "physics"));
+	jobSystem.AddJob(Job(&UpdateCollision, "collision"));
+#endif
+	jobSystem.AddJob(Job(&UpdateAnimation, "animation"));
+	jobSystem.AddJob(Job(&UpdateParticles, "particles"));
+	jobSystem.AddJob(Job(&UpdateGameElements, "gameElements"));
+	jobSystem.AddJob(Job(&UpdateSound, "sound"));
+#ifdef TEST_DEPENDENCIES
+	jobSystem.AddJob(physics);
+	jobSystem.AddJob(collision);
+#endif
 
 	while (!jobSystem.AllJobsFinished());
 #ifdef _DEBUG
@@ -184,14 +203,14 @@ int main(int argc, char** argv)
 
 	ArgumentParser argParser(argc, argv);
 	isRunningParallel = argParser.CheckIfExists("-p", "--parallel") ? true : isRunningParallel;
+	cout << "starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main thread #" << this_thread::get_id() << "...\n";
 	uint32_t numThreads = 1;
 	if (isRunningParallel) {
-		uint32_t numThreads = GetNumThreads(argParser);
+		numThreads = GetNumThreads(argParser);
 	}
 	// TODO: no need to allocate JobSystem when running Serial
 	JobSystem jobSystem(numThreads);
 
-	printf("Starting jobsystem in %s mode...\n", (isRunningParallel ? "parallel" : "serial"));
 	atomic<bool> isRunning = true;
 	// We spawn a "main" thread so we can have the actual main thread blocking to receive a potential quit
 	thread main_runner([ &isRunning, &jobSystem ]()
@@ -204,6 +223,9 @@ int main(int argc, char** argv)
 			if ( isRunningParallel )
 			{
 				UpdateParallel(jobSystem);
+#ifdef TEST_ONLY_ONE_FRAME
+				return;
+#endif
 			}
 			else
 			{

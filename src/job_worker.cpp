@@ -1,5 +1,4 @@
 #include "job_worker.h"
-
 #include "log.h"
 #include "../optick/src/optick.h"
 
@@ -16,6 +15,12 @@
 	#endif
 #endif
 
+// TODO: move together with macros from main to defines.h file
+//#define EXTRA_DEBUG
+#ifdef EXTRA_DEBUG
+	#include <iostream>
+#endif
+
 using lock_guard = std::lock_guard<std::mutex>;
 using unique_lock = std::unique_lock<std::mutex>;
 
@@ -29,8 +34,7 @@ JobWorker::JobWorker()
 {
 	mThread = std::thread([this]()
 	{
-		std::string workerName("Worker ");
-		workerName += std::to_string(mId);
+		std::string workerName("Worker " + std::to_string(mId));
 		OPTICK_THREAD(workerName.c_str());
 
 		Run();
@@ -65,7 +69,6 @@ bool JobWorker::IsRunning() const
 void JobWorker::AddJob(const Job& job)
 {
 	lock_guard lock(mJobQueueMutex);
-
 	mJobQueue.push(job);
 	mJobsTodo = true;
 	mAwakeCondition.notify_one();
@@ -78,29 +81,46 @@ bool JobWorker::AllJobsFinished() const
 
 void JobWorker::Run()
 {
+	#ifdef EXTRA_DEBUG
+		std::cout << "starting worker thread #" << std::this_thread::get_id() << "...\n";
+	#endif
 	while (mIsRunning)
 	{
+		#ifdef EXTRA_DEBUG
+			std::cout << "checking for open jobs on worker thread #" << std::this_thread::get_id() << "...\n";
+		#endif
 		if (mJobQueue.empty())
 		{
+			#ifdef EXTRA_DEBUG
+				std::cout << "waiting for job on worker thread #" << std::this_thread::get_id() << "...\n";
+			#endif
 			WaitForJob();
 		}
 		else
 		{
-			Job job(nullptr);
+			// TODO: return Job * instead of bool
+			//if (Job* job = GetJob())
+			Job job(nullptr, "invalid");
 			if (GetJob(job))
 			{
-				job.JobFunction();
+				job.Execute();
+				job.Finish();
 				mJobRunning = false;
 			}
 			else
 			{
+				// go back to sleep if no executable jobs are available
+				#ifdef EXTRA_DEBUG
+					std::cout << "going to sleep on worker thread #" << std::this_thread::get_id() << "...\n";
+				#endif
 				std::this_thread::yield();
 			}
 		}
 	}
 }
 
-bool JobWorker::GetJob(Job& job)
+// TODO: return Job * instead of bool
+bool JobWorker::GetJob(Job &job)
 {
 	if (mJobQueue.empty())
 	{
@@ -108,11 +128,10 @@ bool JobWorker::GetJob(Job& job)
 	}
 
 	lock_guard lock(mJobQueueMutex);
-	if (CanExecute(mJobQueue.front()))
+	if (mJobQueue.front().CanExecute())
 	{
 		job = mJobQueue.front();
 		mJobQueue.pop();
-
 		if (mJobQueue.empty())
 		{
 			mJobsTodo = false;
@@ -120,13 +139,27 @@ bool JobWorker::GetJob(Job& job)
 		mJobRunning = true;
 		return true;
 	}
-	return false;
-}
+	// TODO: try stealing from another worker queue
+	// currently just re-pushing current first element to get the next
+	else if (mJobQueue.size() > 1)
+	{
+		job = mJobQueue.front();
+		mJobQueue.pop();
+		mJobQueue.push(job);
 
-bool JobWorker::CanExecute(const Job& job) const
-{
-	// TODO: Add dependencies
-	return true;
+		if (mJobQueue.front().CanExecute())
+		{
+			job = mJobQueue.front();
+			mJobQueue.pop();
+			if (mJobQueue.empty())
+			{
+				mJobsTodo = false;
+			}
+			mJobRunning = true;
+			return true;
+		}
+	}
+	return false;
 }
 
 void JobWorker::WaitForJob()

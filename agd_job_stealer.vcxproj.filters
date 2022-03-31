@@ -45,6 +45,9 @@
     <ClCompile Include="src\job_worker.cpp">
       <Filter>jobsystem</Filter>
     </ClCompile>
+    <ClCompile Include="src\job.cpp">
+      <Filter>jobsystem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="optick\src\optick.config.h">

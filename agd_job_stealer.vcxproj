@@ -148,6 +148,7 @@
     <ClCompile Include="optick\src\optick_miniz.cpp" />
     <ClCompile Include="optick\src\optick_serialization.cpp" />
     <ClCompile Include="optick\src\optick_server.cpp" />
+    <ClCompile Include="src\job.cpp" />
     <ClCompile Include="src\job_system.cpp" />
     <ClCompile Include="src\job_worker.cpp" />
     <ClCompile Include="src\main.cpp" />
