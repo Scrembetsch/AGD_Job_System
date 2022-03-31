@@ -132,11 +132,13 @@ bool JobWorker::GetJob(Job** job)
 	{
 		*job = mJobQueue.front();
 		mJobQueue.pop();
+
+		// JobRunning HAS to be set before mJobsTodo, otherwise job-system could die
+		mJobRunning = true;
 		if (mJobQueue.empty())
 		{
 			mJobsTodo = false;
 		}
-		mJobRunning = true;
 		return true;
 	}
 	// TODO: try stealing from another worker queue
@@ -151,11 +153,13 @@ bool JobWorker::GetJob(Job** job)
 		{
 			*job = mJobQueue.front();
 			mJobQueue.pop();
+
+			// JobRunning HAS to be set before mJobsTodo, otherwise job-system could die
+			mJobRunning = true;
 			if (mJobQueue.empty())
 			{
 				mJobsTodo = false;
 			}
-			mJobRunning = true;
 			return true;
 		}
 	}
