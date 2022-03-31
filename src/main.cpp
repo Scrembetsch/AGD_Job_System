@@ -38,7 +38,8 @@ bis 15.04.
 #include <stdio.h>
 
 // Use this to switch between serial and parallel processing (for perf. comparison)
-constexpr bool isRunningParallel = true;
+// configurable with cmd arg --parallel or -p
+bool isRunningParallel = false;
 
 /*
 * ===============================================
@@ -95,6 +96,10 @@ void UpdateSerial()
 	UpdateGameElements();
 	UpdateRendering();
 	UpdateSound();
+
+#ifdef _DEBUG
+	printf("All jobs done!\n");
+#endif
 }
 
 /*
@@ -119,7 +124,7 @@ void UpdateParallel(JobSystem& jobSystem)
 
 	while (!jobSystem.AllJobsFinished());
 #ifdef _DEBUG
-	printf("Jobs done!\n");
+	printf("All jobs done!\n");
 #endif
 }
 
@@ -178,9 +183,15 @@ int main(int argc, char** argv)
 	OPTICK_THREAD("MainThread");
 
 	ArgumentParser argParser(argc, argv);
-	uint32_t numThreads = GetNumThreads(argParser);
+	isRunningParallel = argParser.CheckIfExists("-p", "--parallel") ? true : isRunningParallel;
+	uint32_t numThreads = 1;
+	if (isRunningParallel) {
+		uint32_t numThreads = GetNumThreads(argParser);
+	}
+	// TODO: no need to allocate JobSystem when running Serial
 	JobSystem jobSystem(numThreads);
 
+	printf("Starting jobsystem in %s mode...\n", (isRunningParallel ? "parallel" : "serial"));
 	atomic<bool> isRunning = true;
 	// We spawn a "main" thread so we can have the actual main thread blocking to receive a potential quit
 	thread main_runner([ &isRunning, &jobSystem ]()
