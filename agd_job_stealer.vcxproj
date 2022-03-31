@@ -148,6 +148,8 @@
     <ClCompile Include="optick\src\optick_miniz.cpp" />
     <ClCompile Include="optick\src\optick_serialization.cpp" />
     <ClCompile Include="optick\src\optick_server.cpp" />
+    <ClCompile Include="src\job_system.cpp" />
+    <ClCompile Include="src\job_worker.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -168,6 +170,10 @@
     <ClInclude Include="optick\src\optick_serialization.h" />
     <ClInclude Include="optick\src\optick_server.h" />
     <ClInclude Include="src\argument_parser.h" />
+    <ClInclude Include="src\job.h" />
+    <ClInclude Include="src\job_system.h" />
+    <ClInclude Include="src\job_worker.h" />
+    <ClInclude Include="src\log.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

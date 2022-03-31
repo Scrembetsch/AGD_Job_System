@@ -39,6 +39,12 @@
     <ClCompile Include="optick\src\optick_server.cpp">
       <Filter>optick</Filter>
     </ClCompile>
+    <ClCompile Include="src\job_system.cpp">
+      <Filter>jobsystem</Filter>
+    </ClCompile>
+    <ClCompile Include="src\job_worker.cpp">
+      <Filter>jobsystem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="optick\src\optick.config.h">
@@ -90,6 +96,18 @@
       <Filter>optick</Filter>
     </ClInclude>
     <ClInclude Include="src\argument_parser.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\log.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\job_system.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\job_worker.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\job.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,6 @@
 /*
  * Handl Anja <gs20m005>, Tributsch Harald <gs20m008>, Michael Leithner <gs20m012>
-  
+
 ------------------------------------------------------------------------------------
 TODO:
 
@@ -37,8 +37,8 @@ bis 15.04.
 #include <atomic>
 #include <stdio.h>
 
-// Use this to switch betweeen serial and parallel processing (for perf. comparison)
-constexpr bool isRunningParallel = false;
+// Use this to switch between serial and parallel processing (for perf. comparison)
+constexpr bool isRunningParallel = true;
 
 /*
 * ===============================================
@@ -55,6 +55,7 @@ constexpr bool isRunningParallel = false;
 */
 #include "../optick/src/optick.h"
 #include "argument_parser.h"
+#include "job_system.h"
 
 // NO :(
 using namespace std;
@@ -69,6 +70,7 @@ using namespace std;
 		do { \
 			end = chrono::high_resolution_clock::now(); \
 		} while (chrono::duration_cast<chrono::microseconds>(end - start).count() < (DURATION)); \
+		printf("Jobs done! %s\n", __func__); \
 	} \
 
 // You can create other functions for testing purposes but those here need to run in your job system
@@ -81,6 +83,18 @@ MAKE_UPDATE_FUNC(Particles, 800) // depends on Collision
 MAKE_UPDATE_FUNC(GameElements, 2400) // depends on Physics
 MAKE_UPDATE_FUNC(Rendering, 2000) // depends on Animation, Particles, GameElements
 MAKE_UPDATE_FUNC(Sound, 1000) // no dependencies
+
+void UpdateCustom()
+{
+	OPTICK_EVENT();
+	auto start = chrono::high_resolution_clock::now(); \
+	decltype(start) end; \
+	do {
+		\
+			end = chrono::high_resolution_clock::now(); \
+	} while (chrono::duration_cast<chrono::microseconds>(end - start).count() < (500)); \
+	printf("Jobs done! %s\n", __func__); \
+}
 
 void UpdateSerial()
 {
@@ -96,7 +110,6 @@ void UpdateSerial()
 	UpdateSound();
 }
 
-
 /*
 * ===============================================================
 * In `UpdateParallel` you should use your jobsystem to distribute
@@ -104,18 +117,61 @@ void UpdateSerial()
 * as you see fit for your implementation (to avoid global state)
 * ===============================================================
 */
-void UpdateParallel()
+void UpdateParallel(JobSystem& jobSystem)
 {
 	OPTICK_EVENT();
 
-	UpdateInput();
-	UpdatePhysics();
-	UpdateCollision();
-	UpdateAnimation();
-	UpdateParticles();
-	UpdateGameElements();
-	UpdateRendering();
-	UpdateSound();
+	jobSystem.AddJob(Job(&UpdateCustom));
+	jobSystem.AddJob(Job(&UpdateInput));
+	jobSystem.AddJob(Job(&UpdatePhysics));
+	jobSystem.AddJob(Job(&UpdateCollision));
+	jobSystem.AddJob(Job(&UpdateAnimation));
+	jobSystem.AddJob(Job(&UpdateParticles));
+	jobSystem.AddJob(Job(&UpdateGameElements));
+	jobSystem.AddJob(Job(&UpdateRendering));
+	jobSystem.AddJob(Job(&UpdateSound));
+
+	while (!jobSystem.AllJobsFinished())
+	{
+		bool t = false;
+	}
+}
+
+uint32_t GetNumThreads(const ArgumentParser& argParser)
+{
+	const char* cShortArgName = "-t";
+	const char* cLongArgName = "--threads";
+	// hardwre_concurrency return value is only a hint, in case it returns < 2
+	// we put a max() around it
+	// We also want to keep one available thread "free" so that OS has no problems to schedule main thread
+	uint32_t maxThreads = max(thread::hardware_concurrency(), 2U) - 1;
+
+	uint32_t threads = maxThreads;
+	if (argParser.CheckIfExists(cShortArgName, cLongArgName))
+	{
+		threads = argParser.GetInt(cShortArgName, cLongArgName);
+		if (threads > maxThreads)
+		{
+			threads = maxThreads;
+			printf("Specified number of threads is more than the available %d!\nDefaulting to: %d\n", maxThreads, threads);
+		}
+		else if (threads == 0)
+		{
+			threads = 1;
+			printf("Need at least one worker!\nDefaulting to: %d\n", threads);
+		}
+		else
+		{
+			printf("Specified number of threads: %d\n", threads);
+
+		}
+	}
+	else
+	{
+		printf("No number of cores specified.\nDefaulting to: %d\n", threads);
+	}
+
+	return threads;
 }
 
 int main(int argc, char** argv)
@@ -133,37 +189,15 @@ int main(int argc, char** argv)
 		[](void* p) { operator delete(p); },
 		[]() { /* Do some TLS initialization here if needed */ }
 	);
-
-	ArgumentParser parser(argc, argv);
-	// Take max of returned threads and 2, so that if hardware_concurrency returns < 2, we at least have one worker
-	// Keep one core "free" so that OS has no problems to schedule main thread
-	uint32_t maxCores = max(thread::hardware_concurrency(), 2U) - 1;
-
-	uint32_t cores = maxCores;
-	if (parser.CheckIfExists("-t", "--threads"))
-	{
-		cores = parser.GetInt("-t", "--threads");
-		if (cores > maxCores)
-		{
-			cores = maxCores;
-			printf("Specified number of threads is to much! Defaulting to: %d\n", cores);
-		}
-		else
-		{
-			printf("Specified number of threads: %d\n", cores);
-
-		}
-	}
-	else
-	{
-		printf("No number of cores specified. Defaulting to: %d\n", cores);
-	}
-
 	OPTICK_THREAD("MainThread");
+
+	ArgumentParser argParser(argc, argv);
+	uint32_t numThreads = GetNumThreads(argParser);
+	JobSystem jobSystem(numThreads);
 
 	atomic<bool> isRunning = true;
 	// We spawn a "main" thread so we can have the actual main thread blocking to receive a potential quit
-	thread main_runner([ &isRunning ]()
+	thread main_runner([ &isRunning, &jobSystem ]()
 	{
 		OPTICK_THREAD("Update");
 
@@ -172,7 +206,7 @@ int main(int argc, char** argv)
 			OPTICK_FRAME("Frame");
 			if ( isRunningParallel )
 			{
-				UpdateParallel();
+				UpdateParallel(jobSystem);
 			}
 			else
 			{

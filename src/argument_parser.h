@@ -16,7 +16,7 @@ public:
 	}
 
 	// Gets array position of argument
-	int GetPosition(const std::string& shortArg = "", const std::string& longArg = "")
+	int GetPosition(const std::string& shortArg = "", const std::string& longArg = "") const
 	{
 		for (int i = 0; i < argc; i++)
 		{
@@ -31,13 +31,13 @@ public:
 	}
 
 	// Checks if argument exists
-	bool CheckIfExists(const std::string& shortArg = "", const std::string& longArg = "")
+	bool CheckIfExists(const std::string& shortArg = "", const std::string& longArg = "") const
 	{
 		return GetPosition(shortArg, longArg) != -1;
 	}
 
 	// Retrieves string after argument
-	std::string GetString(const std::string& shortArg = "", const std::string& longArg = "", const std::string& defaultValue = "")
+	std::string GetString(const std::string& shortArg = "", const std::string& longArg = "", const std::string& defaultValue = "") const
 	{
 		int pos = GetPosition(shortArg, longArg);
 		if (pos == -1 || pos == argc)
@@ -48,7 +48,7 @@ public:
 	}
 
 	// Retrieves int after argument
-	int GetInt(const std::string& shortArg = "", const std::string& longArg = "", int defaultValue = -1, int base = 10)
+	int GetInt(const std::string& shortArg = "", const std::string& longArg = "", int defaultValue = -1, int base = 10) const
 	{
 		int pos = GetPosition(shortArg, longArg);
 		if (pos == -1 || pos == argc)
@@ -59,7 +59,7 @@ public:
 	}
 
 	// Retrieves float after argument
-	float GetFloat(const std::string& shortArg = "", const std::string& longArg = "", float defaultValue = -1.0f)
+	float GetFloat(const std::string& shortArg = "", const std::string& longArg = "", float defaultValue = -1.0f) const
 	{
 		int pos = GetPosition(shortArg, longArg);
 		if (pos == -1 || pos == argc)
@@ -70,7 +70,7 @@ public:
 	}
 
 	// Retrieves bool value (true & 1 -> true; everything else -> false)
-	float GetBool(const std::string& shortArg = "", const std::string& longArg = "", bool defaultValue = false)
+	float GetBool(const std::string& shortArg = "", const std::string& longArg = "", bool defaultValue = false) const
 	{
 		int pos = GetPosition(shortArg, longArg);
 		if (pos == -1 || pos == argc)
