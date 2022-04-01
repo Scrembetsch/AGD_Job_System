@@ -27,25 +27,6 @@ Job::Job(JobFunc job, std::string name, Job& parent)
 	mParent->mUnfinishedJobs++;
 }
 
-// TODO: check if actually need copying
-// but if using an atomic member variable is can't be just copied and musst be loaded
-Job::Job(const Job& other)
-	: mJobFunction{ other.mJobFunction }, mParent{ other.mParent }, mName{ other.mName }, mUnfinishedJobs(other.mUnfinishedJobs.load(std::memory_order_seq_cst))
-{
-}
-
-Job& Job::operator = (const Job& other)
-{
-	if (this != &other) // not a self-assignment
-	{
-		mJobFunction = other.mJobFunction;
-		mParent = other.mParent;
-		mName = other.mName;
-		mUnfinishedJobs = other.mUnfinishedJobs.load(std::memory_order_seq_cst);
-	}
-	return *this;
-}
-
 std::string Job::GetName() const
 {
 	return mName;

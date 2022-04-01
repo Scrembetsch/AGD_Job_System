@@ -34,16 +34,17 @@ public:
 	// we don't support jobs with not worker function
 	Job() = delete;
 
+	// we also don't want Jobs to be copied because it doesn't make much sense
+	// but also because handling internal atomics don't like this
+	Job(const Job&) = delete;
+	Job& operator =(const Job&) = delete;
+
+	// TODO: what about move semantics?
+
 	Job(JobFunc job, std::string name);
 
 	// allow having one parent to represent dependencies
 	Job(JobFunc job, std::string name, Job& parent);
-
-	// TODO: check if actually need copying
-	// but if using an atomic member variable is can't be just copied and musst be loaded
-	Job(const Job& other);
-
-	Job& operator = (const Job& other);
 
 	std::string GetName() const;
 
