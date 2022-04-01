@@ -19,7 +19,6 @@ public:
 
 	bool IsRunning() const;
 
-	// HINT: Probably adjust to Job* when adding dependencies
 	void AddJob(Job* job);
 	bool AllJobsFinished() const;
 
@@ -28,7 +27,7 @@ private:
 	void SetThreadAffinity();
 
 	void WaitForJob();
-	bool GetJob(Job** job);
+	Job* GetJob();
 
 	bool mIsRunning;
 	uint32_t mId;

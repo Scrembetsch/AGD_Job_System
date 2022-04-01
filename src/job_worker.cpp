@@ -1,4 +1,4 @@
-#include "job_worker.h"
+﻿#include "job_worker.h"
 #include "log.h"
 #include "../optick/src/optick.h"
 
@@ -87,7 +87,7 @@ void JobWorker::Run()
 	while (mIsRunning)
 	{
 		#ifdef EXTRA_DEBUG
-			std::cout << "checking for open jobs on worker thread #" << std::this_thread::get_id() << "...\n";
+			std::cout << "checking for open jobs for queue size " << mJobQueue.size() << " on worker thread #" << std::this_thread::get_id() << "...\n";
 		#endif
 		if (mJobQueue.empty())
 		{
@@ -98,11 +98,11 @@ void JobWorker::Run()
 		}
 		else
 		{
-			// TODO: return Job * instead of bool
-			//if (Job* job = GetJob())
-			Job* job = nullptr;
-			if (GetJob(&job))
+			if (Job* job = GetJob())
 			{
+				#ifdef EXTRA_DEBUG
+					std::cout << "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...\n";
+				#endif
 				job->Execute();
 				job->Finish();
 				mJobRunning = false;
@@ -119,47 +119,53 @@ void JobWorker::Run()
 	}
 }
 
-// TODO: return Job * instead of bool
-bool JobWorker::GetJob(Job** job)
+Job* JobWorker::GetJob()
 {
 	if (mJobQueue.empty())
 	{
-		return false;
+		#ifdef EXTRA_DEBUG
+			std::cout << " -> returning because of empty queue from worker thread #" << std::this_thread::get_id() << "...\n";
+		#endif
+		return nullptr;
 	}
 
 	lock_guard lock(mJobQueueMutex);
 	if (mJobQueue.front()->CanExecute())
 	{
-		*job = mJobQueue.front();
+		Job *job = mJobQueue.front();
 		mJobQueue.pop();
 		if (mJobQueue.empty())
 		{
 			mJobsTodo = false;
 		}
 		mJobRunning = true;
-		return true;
+		return job;
 	}
 	// TODO: try stealing from another worker queue
 	// currently just re-pushing current first element to get the next
 	else if (mJobQueue.size() > 1)
 	{
-		*job = mJobQueue.front();
+		Job* job = mJobQueue.front();
 		mJobQueue.pop();
-		mJobQueue.push(*job);
+		mJobQueue.push(job);
 
 		if (mJobQueue.front()->CanExecute())
 		{
-			*job = mJobQueue.front();
+			job = mJobQueue.front();
 			mJobQueue.pop();
 			if (mJobQueue.empty())
 			{
 				mJobsTodo = false;
 			}
 			mJobRunning = true;
-			return true;
+			return job;
 		}
 	}
-	return false;
+
+	#ifdef EXTRA_DEBUG
+		std::cout << "no executable job found for queue size: " << mJobQueue.size() << " on worker thread #" << std::this_thread::get_id() << "...\n";
+	#endif
+	return nullptr;
 }
 
 void JobWorker::WaitForJob()
