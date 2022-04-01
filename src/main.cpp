@@ -63,6 +63,11 @@ using namespace std;
 // TODO: move together with macros from other files to defines.h file
 //#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
 //#define TEST_DEPENDENCIES // test if correct dependencies are met
+//#define EXTRA_DEBUG // additional debug output
+
+#ifdef _DEBUG
+	#define EXTRA_DEBUG
+#endif
 
 // Don't change this macros (unless for removing Optick if you want) - if you need something
 // for your local testing, create a new one for yourselves.
@@ -102,7 +107,7 @@ void UpdateSerial()
 	UpdateGameElements();
 	UpdateSound();
 
-#ifdef _DEBUG
+#ifdef EXTRA_DEBUG
 	printf("All jobs done!\n");
 #endif
 }
@@ -120,28 +125,29 @@ void UpdateParallel(JobSystem& jobSystem)
 
 	std::vector<Job*> jobs;
 
-#ifdef TEST_DEPENDENCIES
-	// Test if adding rendering first still respect dependencies
-	Job rendering(&UpdateRendering, "rendering");
-	Job collision(&UpdateCollision, "collision", rendering);
-	Job physics(&UpdatePhysics, "physics", collision);
-	// -> physics -> collision -> rendering
-	jobSystem.AddJob(rendering);
+#ifdef EXTRA_DEBUG
+	printf("---------- CREATING JOBS ----------\n");
 #endif
 
-	jobs.push_back(new Job(&UpdateInput, "input"));
-#ifndef TEST_DEPENDENCIES
-	jobs.push_back(new Job(&UpdatePhysics, "physics"));
+#ifdef TEST_DEPENDENCIES
+	// Test if adding rendering first still respect dependencies
+	Job *rendering = new Job(&UpdateRendering, "rendering");
+	Job *collision = new Job(&UpdateCollision, "collision", *rendering);
+	Job *physics = new Job(&UpdatePhysics, "physics", *collision);
+	// -> physics -> collision -> rendering
+	jobs.push_back(rendering);
+	jobs.push_back(collision);
+	jobs.push_back(physics);
+#else
+	jobs.push_back(new Job(&UpdateRendering, "rendering"));
 	jobs.push_back(new Job(&UpdateCollision, "collision"));
+	jobs.push_back(new Job(&UpdatePhysics, "physics"));
 #endif
+	jobs.push_back(new Job(&UpdateInput, "input"));
 	jobs.push_back(new Job(&UpdateAnimation, "animation"));
 	jobs.push_back(new Job(&UpdateParticles, "particles"));
 	jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
 	jobs.push_back(new Job(&UpdateSound, "sound"));
-#ifdef TEST_DEPENDENCIES
-	jobs.push_back(new AddJob(physics);
-	jobs.push_back(new AddJob(collision);
-#endif
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
 		jobSystem.AddJob(jobs[i]);
@@ -149,23 +155,22 @@ void UpdateParallel(JobSystem& jobSystem)
 
 	while (!jobSystem.AllJobsFinished());
 
-#ifdef _DEBUG
-	printf("All jobs done!\n");
+#ifdef EXTRA_DEBUG
+	cout << "All jobs done on main thread #" << this_thread::get_id() << "...\n";
+	printf("---------- DELETING JOBS ----------\n");
 #endif
 
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
 		delete jobs[i];
 	}
-	//jobs.clear();
-	
 }
 
 uint32_t GetNumThreads(const ArgumentParser& argParser)
 {
 	const char* cShortArgName = "-t";
 	const char* cLongArgName = "--threads";
-	// hardwre_concurrency return value is only a hint, in case it returns < 2
+	// hardware_concurrency return value is only a hint, in case it returns < 2
 	// we put a max() around it
 	// We also want to keep one available thread "free" so that OS has no problems to schedule main thread
 	uint32_t maxThreads = max(thread::hardware_concurrency(), 2U) - 1;
@@ -217,7 +222,6 @@ int main(int argc, char** argv)
 
 	ArgumentParser argParser(argc, argv);
 	isRunningParallel = argParser.CheckIfExists("-p", "--parallel") ? true : isRunningParallel;
-	cout << "starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main thread #" << this_thread::get_id() << "...\n";
 	uint32_t numThreads = 1;
 	if (isRunningParallel) {
 		numThreads = GetNumThreads(argParser);
@@ -247,6 +251,8 @@ int main(int argc, char** argv)
 			}
 		}
 	});
+
+	cout << "starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main_runner thread #" << main_runner.get_id() << "...\n";
 
 	printf("Type anything to quit...\n");
 	char c;

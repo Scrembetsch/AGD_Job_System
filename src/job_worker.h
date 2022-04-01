@@ -17,8 +17,6 @@ public:
 	JobWorker();
 	~JobWorker();
 
-	bool IsRunning() const;
-
 	void AddJob(Job* job);
 	bool AllJobsFinished() const;
 
@@ -29,7 +27,6 @@ private:
 	void WaitForJob();
 	Job* GetJob();
 
-	bool mIsRunning;
 	uint32_t mId;
 	std::thread mThread;
 	std::mutex mAwakeMutex;
@@ -39,6 +36,5 @@ private:
 	std::mutex mJobQueueMutex;
 	std::queue<Job*> mJobQueue;
 
-	std::atomic_bool mJobsTodo;
-	std::atomic_bool mJobRunning;
+	std::atomic_bool mJobRunning = false;
 };

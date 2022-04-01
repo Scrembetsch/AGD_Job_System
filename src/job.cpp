@@ -51,22 +51,21 @@ bool Job::IsFinished() const
 
 void Job::Finish()
 {
-	mUnfinishedJobs--;
+	//mUnfinishedJobs--; // rmw problem?
+	const int32_t unfinishedJobs = --mUnfinishedJobs;
 
 #ifdef EXTRA_DEBUG
 	const std::lock_guard<std::mutex> lock(g_i_mutex);
 	std::cout << "job " << mName << " finished with open dependecies: " << mUnfinishedJobs << " on thread #" << std::this_thread::get_id() << "...\n";
 #endif
 
-	if (IsFinished())
+	//if (IsFinished() && mParent)
+	if (unfinishedJobs == 0 && mParent)
 	{
 		// notify parent that dependent child finished work
 		#ifdef EXTRA_DEBUG
 			std::cout << "having parent " << (mParent ? mParent->mName : "none") << " with open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs : 0) << "\n";
 		#endif
-		if (mParent != nullptr)
-		{
-			mParent->Finish();
-		}
+		mParent->Finish();
 	}
 }

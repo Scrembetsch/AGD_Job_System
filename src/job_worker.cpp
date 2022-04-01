@@ -26,11 +26,7 @@ using unique_lock = std::unique_lock<std::mutex>;
 
 std::atomic_uint32_t JobWorker::sWorkerCounter = 0;
 
-JobWorker::JobWorker()
-	: mIsRunning(true)
-	, mJobsTodo(false)
-	, mJobRunning(false)
-	, mId(sWorkerCounter++)
+JobWorker::JobWorker() : mId(sWorkerCounter++)
 {
 	mThread = std::thread([this]()
 	{
@@ -44,7 +40,6 @@ JobWorker::JobWorker()
 
 JobWorker::~JobWorker()
 {
-	mIsRunning = false;
 	mAwakeCondition.notify_one();
 	mThread.join();
 }
@@ -61,22 +56,18 @@ void JobWorker::SetThreadAffinity()
 #endif
 }
 
-bool JobWorker::IsRunning() const
-{
-	return mIsRunning;
-}
-
 void JobWorker::AddJob(Job* job)
 {
 	lock_guard lock(mJobQueueMutex);
 	mJobQueue.push(job);
-	mJobsTodo = true;
 	mAwakeCondition.notify_one();
 }
 
+// HINT: this gets called from within the main thread!
+// so either need to synchronize or get rid of
 bool JobWorker::AllJobsFinished() const
 {
-	return !(mJobsTodo | mJobRunning);
+	return !(!mJobQueue.empty() || mJobRunning);
 }
 
 void JobWorker::Run()
@@ -84,43 +75,48 @@ void JobWorker::Run()
 	#ifdef EXTRA_DEBUG
 		std::cout << "starting worker thread #" << std::this_thread::get_id() << "...\n";
 	#endif
-	while (mIsRunning)
+	while (true)
 	{
 		#ifdef EXTRA_DEBUG
-			std::cout << "checking for open jobs for queue size " << mJobQueue.size() << " on worker thread #" << std::this_thread::get_id() << "...\n";
+			std::cout << "waiting for job on worker thread #" << std::this_thread::get_id() << "...\n";
 		#endif
+
 		if (mJobQueue.empty())
 		{
-			#ifdef EXTRA_DEBUG
-				std::cout << "waiting for job on worker thread #" << std::this_thread::get_id() << "...\n";
-			#endif
 			WaitForJob();
+		}
+		else if (Job* job = GetJob())
+		{
+			#ifdef EXTRA_DEBUG
+				std::cout << "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...\n";
+			#endif
+			job->Execute();
+			job->Finish();
+			
+			// HINT: this can be a problem if setting value gets ordered before job is finished
+			// try using a write barrier to ensure val is really written after finish
+			//_ReadWriteBarrier(); // TODO: (for MS, std atomic fence)
+			// or remove?
+
+			if (job->IsFinished())
+			{
+				mJobRunning = false;
+			}
 		}
 		else
 		{
-			if (Job* job = GetJob())
-			{
-				#ifdef EXTRA_DEBUG
-					std::cout << "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...\n";
-				#endif
-				job->Execute();
-				job->Finish();
-				mJobRunning = false;
-			}
-			else
-			{
-				// go back to sleep if no executable jobs are available
-				#ifdef EXTRA_DEBUG
-					std::cout << "going to sleep on worker thread #" << std::this_thread::get_id() << "...\n";
-				#endif
-				std::this_thread::yield();
-			}
+			// go back to sleep if no executable jobs are available
+			#ifdef EXTRA_DEBUG
+				std::cout << "going to sleep on worker thread #" << std::this_thread::get_id() << "...\n";
+			#endif
+			std::this_thread::yield();
 		}
 	}
 }
 
 Job* JobWorker::GetJob()
 {
+	lock_guard lock(mJobQueueMutex);
 	if (mJobQueue.empty())
 	{
 		#ifdef EXTRA_DEBUG
@@ -129,18 +125,11 @@ Job* JobWorker::GetJob()
 		return nullptr;
 	}
 
-	lock_guard lock(mJobQueueMutex);
 	if (mJobQueue.front()->CanExecute())
 	{
+		mJobRunning = true;
 		Job *job = mJobQueue.front();
 		mJobQueue.pop();
-
-		// JobRunning HAS to be set before mJobsTodo, otherwise job-system could die
-		mJobRunning = true;
-		if (mJobQueue.empty())
-		{
-			mJobsTodo = false;
-		}
 		return job;
 	}
 	// TODO: try stealing from another worker queue
@@ -153,15 +142,9 @@ Job* JobWorker::GetJob()
 
 		if (mJobQueue.front()->CanExecute())
 		{
+			mJobRunning = true;
 			job = mJobQueue.front();
 			mJobQueue.pop();
-
-			// JobRunning HAS to be set before mJobsTodo, otherwise job-system could die
-			mJobRunning = true;
-			if (mJobQueue.empty())
-			{
-				mJobsTodo = false;
-			}
 			return job;
 		}
 	}
@@ -172,7 +155,7 @@ Job* JobWorker::GetJob()
 	return nullptr;
 }
 
-void JobWorker::WaitForJob()
+inline void JobWorker::WaitForJob()
 {
 	unique_lock lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this] { return !mJobQueue.empty(); });
