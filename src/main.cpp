@@ -153,7 +153,12 @@ void UpdateParallel(JobSystem& jobSystem)
 	printf("All jobs done!\n");
 #endif
 
-	jobs.clear();
+	for (uint32_t i = 0; i < jobs.size(); i++)
+	{
+		delete jobs[i];
+	}
+	//jobs.clear();
+	
 }
 
 uint32_t GetNumThreads(const ArgumentParser& argParser)
