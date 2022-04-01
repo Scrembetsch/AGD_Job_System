@@ -147,15 +147,13 @@ void UpdateParallel(JobSystem& jobSystem)
 		jobSystem.AddJob(jobs[i]);
 	}
 
-
 	while (!jobSystem.AllJobsFinished());
-	for (uint32_t i = 0; i < jobs.size(); i++)
-	{
-		delete jobs[i];
-	}
+
 #ifdef _DEBUG
 	printf("All jobs done!\n");
 #endif
+
+	jobs.clear();
 }
 
 uint32_t GetNumThreads(const ArgumentParser& argParser)
