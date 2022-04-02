@@ -98,10 +98,11 @@ void UpdateSerial()
 	UpdateGameElements();
 	UpdateSound();
 
-#ifdef EXTRA_DEBUG
-	printf("All jobs done!\n");
-#endif
+	HTL_LOGD("All jobs done!\n");
 }
+
+std::mutex ThreadSafeLogger::mutex;
+ThreadSafeLogger ThreadSafeLogger::Logger;
 
 /*
 * ===============================================================
@@ -116,15 +117,13 @@ void UpdateParallel(JobSystem& jobSystem)
 
 	std::vector<Job*> jobs;
 
-#ifdef EXTRA_DEBUG
-	printf("---------- CREATING JOBS ----------\n");
-#endif
+	HTL_LOGD("---------- CREATING JOBS ----------\n");
 
 #ifdef TEST_DEPENDENCIES
 	// Test if adding rendering first still respect dependencies
 	Job *rendering = new Job(&UpdateRendering, "rendering");
-	Job *collision = new Job(&UpdateCollision, "collision", *rendering);
-	Job *physics = new Job(&UpdatePhysics, "physics", *collision);
+	Job *collision = new Job(&UpdateCollision, "collision", rendering);
+	Job *physics = new Job(&UpdatePhysics, "physics", collision);
 	// -> physics -> collision -> rendering
 	jobs.push_back(rendering);
 	jobs.push_back(collision);
@@ -134,11 +133,11 @@ void UpdateParallel(JobSystem& jobSystem)
 	jobs.push_back(new Job(&UpdateCollision, "collision"));
 	jobs.push_back(new Job(&UpdatePhysics, "physics"));
 #endif
-	jobs.push_back(new Job(&UpdateInput, "input"));
-	jobs.push_back(new Job(&UpdateAnimation, "animation"));
-	jobs.push_back(new Job(&UpdateParticles, "particles"));
-	jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
-	jobs.push_back(new Job(&UpdateSound, "sound"));
+	//jobs.push_back(new Job(&UpdateInput, "input"));
+	//jobs.push_back(new Job(&UpdateAnimation, "animation"));
+	//jobs.push_back(new Job(&UpdateParticles, "particles"));
+	//jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
+	//jobs.push_back(new Job(&UpdateSound, "sound"));
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
 		jobSystem.AddJob(jobs[i]);
@@ -146,10 +145,8 @@ void UpdateParallel(JobSystem& jobSystem)
 
 	while (!jobSystem.AllJobsFinished());
 
-#ifdef EXTRA_DEBUG
-	cout << "All jobs done on main thread #" << this_thread::get_id() << "...\n";
-	printf("---------- DELETING JOBS ----------\n");
-#endif
+	HTL_LOGD("All jobs done on main thread #" << this_thread::get_id() << "...\n");
+	HTL_LOGD("---------- DELETING JOBS ----------\n");
 
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
@@ -245,7 +242,7 @@ int main(int argc, char** argv)
 
 	cout << "starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main_runner thread #" << main_runner.get_id() << "...\n";
 	printf("Type anything to quit...\n");
-	
+
 	char c;
 	scanf_s("%c", &c, 1);
 	printf("Quitting...\n");

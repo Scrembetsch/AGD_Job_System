@@ -11,7 +11,6 @@
 #ifdef EXTRA_DEBUG
 	// TODO: remove/comment all stuff for printing information
 	// setting up a guard_lock to be able to sync print and using cout for printing thread_id
-	std::mutex g_i_mutex;
 #endif
 
 Job::Job(JobFunc job, std::string name)
@@ -20,15 +19,25 @@ Job::Job(JobFunc job, std::string name)
 }
 
 // allow having one parent to represent dependencies
-Job::Job(JobFunc job, std::string name, Job& parent)
-	: mJobFunction{ job }, mName{ name }, mParent{ &parent }
+Job::Job(JobFunc job, std::string name, Job* parent)
+	: mJobFunction{ job }, mName{ name }, mParent{ parent }
 {
 	mParent->mUnfinishedJobs++;
+	HTL_LOGI("Increment on " << mName << " by: " << mParent->mName << ", Now: " << mUnfinishedJobs.load() << "\n");
 }
 
 std::string Job::GetName() const
 {
 	return mName;
+}
+
+void Job::AddDependency()
+{
+	mUnfinishedJobs++;
+	//if (mParent != nullptr)
+	//{
+	//	mParent->AddDependency();
+	//}
 }
 
 // need something to check if dependencies are met
@@ -41,7 +50,7 @@ bool Job::CanExecute() const
 void Job::Execute()
 {
 	mJobFunction();
-	Finish();
+	Finish(false);
 }
 
 bool Job::IsFinished() const
@@ -49,22 +58,20 @@ bool Job::IsFinished() const
 	return (mUnfinishedJobs.load() == 0);
 }
 
-void Job::Finish()
+void Job::Finish(bool finishFromChild)
 {
 	//--mUnfinishedJobs; // rmw problem although using atomic value?
 	//const int32_t unfinishedJobs = mUnfinishedJobs.fetch_sub(1); // but fetch_ returns previous value :-o
-	mUnfinishedJobs.store(mUnfinishedJobs.load() - 1);
+	mUnfinishedJobs--;
+	HTL_LOGI("Decrement on " << mName << ", Now: " << mUnfinishedJobs.load() << "\n");
+	HTL_LOGI("job " << mName << " finished with open dependecies: " << mUnfinishedJobs.load() << " on thread #" << std::this_thread::get_id() << "...\n");
 
-#ifdef EXTRA_DEBUG
-	std::cout << "job " << mName << " finished with open dependecies: " << mUnfinishedJobs.load() << " on thread #" << std::this_thread::get_id() << "...\n";
-#endif
-
-	if (mUnfinishedJobs.load() == 0 && mParent)
+	if (mUnfinishedJobs.load() == 0
+		&& mParent
+		/*&& !finishFromChild*/)
 	{
 		// notify parent that dependent child finished work
-		#ifdef EXTRA_DEBUG
-			std::cout << "having parent " << (mParent ? mParent->mName : "none") << " with open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs : 0) << "\n";
-		#endif
-		mParent->Finish();
+		HTL_LOGI("having parent " << (mParent ? mParent->mName : "none") << " with open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs : 0) << "\n");
+		mParent->Finish(true);
 	}
 }

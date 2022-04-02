@@ -119,5 +119,8 @@
     <ClInclude Include="src\lockless_queue.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
+    <ClInclude Include="src\thread_safe_logger.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

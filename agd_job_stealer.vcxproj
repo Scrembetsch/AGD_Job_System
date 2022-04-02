@@ -177,6 +177,7 @@
     <ClInclude Include="src\job_worker.h" />
     <ClInclude Include="src\locking_queue.h" />
     <ClInclude Include="src\lockless_queue.h" />
+    <ClInclude Include="src\thread_safe_logger.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

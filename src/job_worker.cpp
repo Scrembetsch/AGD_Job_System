@@ -15,10 +15,6 @@
 #endif
 
 // TODO: move together with macros from main to defines.h file
-//#define EXTRA_DEBUG
-#ifdef EXTRA_DEBUG
-	#include <iostream>
-#endif
 
 using lock_guard = std::lock_guard<std::mutex>;
 using unique_lock = std::unique_lock<std::mutex>;
@@ -44,9 +40,7 @@ JobWorker::~JobWorker()
 	// Q: I don't really understand what this should do?
 	//mAwakeCondition.notify_one();
 	//mThread.join();
-#ifdef EXTRA_DEBUG
-	thread_log(mId, "~destructing worker");
-#endif
+	HTL_LOGT(mId, "~destructing worker");
 }
 
 void JobWorker::SetThreadAffinity()
@@ -56,7 +50,7 @@ void JobWorker::SetThreadAffinity()
 	if (dw == 0)
 	{
 		DWORD dwErr = GetLastError();
-		HTL_LOGE("SetThreadAffinityMask failed, GLE=%lu", dwErr);
+		HTL_LOGE("SetThreadAffinityMask failed, GLE=" << dwErr << ")\n");
 	}
 #endif
 }
@@ -76,9 +70,7 @@ bool JobWorker::AllJobsFinished() const
 
 void JobWorker::Shutdown()
 {
-#ifdef EXTRA_DEBUG
-	thread_log(mId, "shutdown job...");
-#endif
+	HTL_LOGT(mId, "shutdown job...");
 	// breaking the worker loop
 	mRunning = false;
 
@@ -91,22 +83,16 @@ void JobWorker::Shutdown()
 	// A: Without this jobsystem doesn't shutdown correctly
 	mAwakeCondition.notify_one();
 	mThread.join();
-#ifdef EXTRA_DEBUG
-	thread_log(mId, "job successfully shutdown");
-#endif
+	HTL_LOGT(mId, "job successfully shutdown");
 }
 
 void JobWorker::Run()
 {
-	#ifdef EXTRA_DEBUG
-		thread_log(mId, "starting worker");
-	#endif
+	HTL_LOGT(mId, "starting worker");
 	while (mRunning)
 	{
-		#ifdef EXTRA_DEBUG
-			thread_log(mId, "waiting for job");
-			//std::cout << "waiting for job on worker thread #" << std::this_thread::get_id() << "...\n";
-		#endif
+		HTL_LOGT(mId, "waiting for job");
+		//HTL_LOGD("waiting for job on worker thread #" << std::this_thread::get_id() << "...\n");
 
 		if (mJobQueue.IsEmpty())
 		{
@@ -114,9 +100,7 @@ void JobWorker::Run()
 		}
 		else if (Job* job = GetJob())
 		{
-			#ifdef EXTRA_DEBUG
-				std::cout << "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...\n";
-			#endif
+			HTL_LOGD("starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...\n");
 			job->Execute();
 			//job->Finish(); // EDITED: is now called internally
 
@@ -131,23 +115,19 @@ void JobWorker::Run()
 			}
 			else
 			{
-				thread_log(1, "\t!!! ERROR: job not finished after execution :-o");
+				HTL_LOGTE(mId, "job not finished after execution :-o");
 			}
 		}
 		else
 		{
 			// go back to sleep if no executable jobs are available
-			#ifdef EXTRA_DEBUG
-				thread_log(mId, "going to sleep on worker thread");
-				//std::cout << "going to sleep on worker thread #" << std::this_thread::get_id() << "...\n";
-			#endif
+			HTL_LOGT(mId, "going to sleep on worker thread");
+			//HTL__LOGD("going to sleep on worker thread #" << std::this_thread::get_id() << "...\n");
 
 			std::this_thread::yield();
 		}
 	}
-	#ifdef EXTRA_DEBUG
-		thread_log(mId, "job end run");
-	#endif
+	HTL_LOGT(mId, "job end run");
 }
 
 Job* JobWorker::GetJob()
@@ -171,16 +151,14 @@ Job* JobWorker::GetJob()
 	}
 #endif
 
-	#ifdef EXTRA_DEBUG
-		std::cout << "no executable job found for queue size: " << mJobQueue.Size() << " on worker thread #" << std::this_thread::get_id() << ":\n";
-	#endif
+	HTL_LOGD("no executable job found for queue size: " << mJobQueue.Size() << " on worker thread #" << std::this_thread::get_id() << ":\n");
 	return nullptr;
 }
 
 inline void JobWorker::WaitForJob()
 {
-	unique_lock lock(mAwakeMutex);
-	thread_log(mId, "awaking");
+	std::unique_lock<std::mutex> lock(mAwakeMutex);
+	HTL_LOGT(mId, "awaking");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
 	mAwakeCondition.wait(lock, [this] { return !mJobQueue.IsEmpty() | !mRunning; });
 }

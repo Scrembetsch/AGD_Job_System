@@ -32,7 +32,7 @@ bool JobSystem::AllJobsFinished() const
 
 void JobSystem::ShutDown()
 {
-	printf("shutting down jobsystem...");
+	HTL_LOGD("shutting down jobsystem...");
 	for (uint32_t i = 0; i < mNumWorkers; i++)
 	{
 		mWorkers[i].Shutdown();

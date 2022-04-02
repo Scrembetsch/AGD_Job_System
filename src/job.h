@@ -44,7 +44,7 @@ public:
 	Job(JobFunc job, std::string name);
 
 	// allow having one parent to represent dependencies
-	Job(JobFunc job, std::string name, Job& parent);
+	Job(JobFunc job, std::string name, Job* parent);
 
 	std::string GetName() const;
 
@@ -56,5 +56,7 @@ public:
 
 	bool IsFinished() const;
 
-	void Finish();
+	void Finish(bool finishFromChild);
+
+	void AddDependency();
 };

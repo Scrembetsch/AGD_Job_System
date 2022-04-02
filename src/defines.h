@@ -3,14 +3,30 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define HTL_LOGE(...) printf("[ERROR]   In File '%s' at Line %d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
-#define HTL_LOGW(...) printf("[WARNING] In File '%s' at Line %d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
-#define HTL_LOGD(...) printf("[DEBUG]   In File '%s' at Line %d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
+#include "thread_safe_logger.h"
 
-void static thread_log(uint32_t threadId, const char *msg)
-{
-    printf("\x1B[%dm%s on thread #%d\033[0m\n", threadId + 31, msg, threadId);
-}
+#ifdef _DEBUG
+    #define EXTRA_DEBUG
+#endif
+
+#define HTL_LOGE(message) ThreadSafeLogger::Logger << "[ERROR]  " << message
+#define HTL_LOGW(message) ThreadSafeLogger::Logger << "[WARNING]"
+#if defined(_DEBUG) || defined(EXTRA_DEBUG)
+#define HTL_LOGD(message) ThreadSafeLogger::Logger << "[DEBUG]  " << message
+#else
+#define HTL_LOGD(message)
+#endif
+#if defined(EXTRA_DEBUG)
+#define HTL_LOGI(message) ThreadSafeLogger::Logger << "[INFO]   "
+#else
+#define HTL_LOGI(message)
+#endif
+#define HTL_LOGTE(threadId, message) ThreadSafeLogger::Logger << "[ERROR]   " << "\x1B[" << threadId + 31 << "m" << message << " on thread # " << threadId << "\033[0m\n";
+#if defined(EXTRA_DEBUG)
+#define HTL_LOGT(threadId, message) ThreadSafeLogger::Logger << "[INFO]   " << "\x1B[" << threadId + 31 << "m" << message << " on thread # " << threadId << "\033[0m\n";
+#else
+#define HTL_LOGT(threadId, message)
+#endif
 
 // custom defines for easier testing
 // TODO: move together with macros from other files to defines.h file
@@ -18,7 +34,3 @@ void static thread_log(uint32_t threadId, const char *msg)
 //#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
 #define TEST_DEPENDENCIES // test if correct dependencies are met
 //#define EXTRA_DEBUG // additional debug output
-
-#ifdef _DEBUG
-    #define EXTRA_DEBUG
-#endif
