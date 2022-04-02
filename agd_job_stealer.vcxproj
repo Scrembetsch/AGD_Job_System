@@ -152,6 +152,7 @@
     <ClCompile Include="src\job_system.cpp" />
     <ClCompile Include="src\job_worker.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\random.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="optick\src\optick.config.h" />
@@ -177,6 +178,7 @@
     <ClInclude Include="src\job_worker.h" />
     <ClInclude Include="src\locking_queue.h" />
     <ClInclude Include="src\lockless_queue.h" />
+    <ClInclude Include="src\random.h" />
     <ClInclude Include="src\thread_safe_logger.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

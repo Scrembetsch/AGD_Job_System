@@ -48,6 +48,9 @@
     <ClCompile Include="src\job.cpp">
       <Filter>jobsystem</Filter>
     </ClCompile>
+    <ClCompile Include="src\random.cpp">
+      <Filter>jobsystem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="optick\src\optick.config.h">
@@ -120,6 +123,9 @@
       <Filter>jobsystem</Filter>
     </ClInclude>
     <ClInclude Include="src\thread_safe_logger.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\random.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
   </ItemGroup>

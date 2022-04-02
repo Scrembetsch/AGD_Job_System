@@ -5,6 +5,11 @@ JobSystem::JobSystem(uint32_t numThreads)
 	, mNumWorkers(numThreads)
 	, mWorkers(new JobWorker[numThreads])
 {
+	for (int i = 0; i < mNumWorkers; i++)
+	{
+		mWorkers[i].mNumWorkers = mNumWorkers;
+		mWorkers[i].mOtherWorkers = mWorkers;
+	}
 }
 
 JobSystem::~JobSystem()

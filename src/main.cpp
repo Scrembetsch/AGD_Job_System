@@ -54,6 +54,7 @@ bis 15.04.
 #include <atomic>
 #include <iostream> // using cout to print thread_id, otherwise would need to create a stringstream
 
+
 // Use this to switch between serial and parallel processing (for perf. comparison)
 // configurable with cmd arg --parallel or -p
 bool isRunningParallel = false;

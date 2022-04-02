@@ -11,6 +11,8 @@
 #include <mutex>
 #include <thread>
 
+#include "random.h"
+
 class JobWorker
 {
 private:
@@ -25,6 +27,9 @@ public:
 	size_t GetNumJobs() const;
 
 	void Shutdown();
+
+	JobWorker* mOtherWorkers;
+	uint32_t mNumWorkers;
 
 private:
 	void Run();
@@ -46,4 +51,6 @@ private:
 
 	std::atomic_bool mJobRunning = false;
 	std::atomic_bool mRunning = true;
+
+	Random mRanNumGen;
 };

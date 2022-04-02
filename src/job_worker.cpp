@@ -120,13 +120,12 @@ void JobWorker::Run()
 
 Job* JobWorker::GetJob()
 {
+	// execute our own jobs first
 	if (Job* job = mJobDeque.PopFront())
 	{
 		mJobRunning = true;
 		return job;
 	}
-	// TODO: try stealing from another worker queue
-
 	// currently just re-pushing current first element to get the next
 	else if (mJobDeque.Size() > 1)
 	{
@@ -136,6 +135,29 @@ Job* JobWorker::GetJob()
 			mJobRunning = true;
 			return job;
 		}
+	}
+
+	// try stealing from another random worker queue
+	unsigned int randomNumber = mRanNumGen.Rand(0, mNumWorkers);
+	JobWorker* dequeToStealFrom = &mOtherWorkers[randomNumber];
+	
+	// no stealing from ourselves
+	if (dequeToStealFrom == this)
+	{
+		Yield();
+	}
+
+	if (Job* job = dequeToStealFrom->mJobDeque.PopBack())
+	{
+		// successfully stolen a job from another queues public end
+		HTL_LOGT(mId, "Job successfully stolen");
+		mJobRunning = true;
+		return job;
+	}
+	else
+	{
+		// no job could be stolen
+		Yield();
 	}
 
 	HTL_LOGT(mId, "no executable job found for queue size: " << mJobDeque.Size() <<
