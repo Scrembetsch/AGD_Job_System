@@ -52,11 +52,13 @@ void JobWorker::AddJob(Job* job)
 // so either need to synchronize or get rid of
 bool JobWorker::AllJobsFinished() const
 {
+	lock_guard lock(mJobDeque.GetMutex());
 	return !(!mJobDeque.IsEmpty() || mJobRunning);
 }
 
 size_t JobWorker::GetNumJobs() const
 {
+	lock_guard lock(mJobDeque.GetMutex());
 	return mJobDeque.Size();
 }
 
@@ -68,6 +70,8 @@ void JobWorker::Shutdown()
 
 	// need to clear all remaining tasks
 	mJobRunning = false;
+
+	lock_guard lock(mJobDeque.GetMutex());
 	while (!mJobDeque.IsEmpty()) mJobDeque.PopFront();
 
 	// wait for thread end by waking up and waiting for finish
@@ -82,9 +86,8 @@ void JobWorker::Run()
 	while (mRunning)
 	{
 		HTL_LOGT(mId, "waiting for job");
-		//HTL_LOGD("waiting for job on worker thread #" << std::this_thread::get_id() << "...");
 
-		if (mJobDeque.IsEmpty())
+		if (!AnyJobAvailable())
 		{
 			WaitForJob();
 		}
@@ -117,9 +120,15 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "job end run");
 }
 
-
-Job* JobWorker::GetJob()
+bool JobWorker::AnyJobAvailable() const
 {
+	lock_guard lock(mJobDeque.GetMutex());
+	return !mJobDeque.IsEmpty();
+}
+
+Job* JobWorker::GetJobFromOwnQueue()
+{
+	lock_guard lock(mJobDeque.GetMutex());
 	// execute our own jobs first
 	if (Job* job = mJobDeque.PopFront())
 	{
@@ -136,16 +145,22 @@ Job* JobWorker::GetJob()
 			return job;
 		}
 	}
+	return nullptr;
+}
 
+Job* JobWorker::StealJobFromOtherQueue()
+{
 	// try stealing from another random worker queue
 	unsigned int randomNumber = mRanNumGen.Rand(0, mNumWorkers);
 	JobWorker* dequeToStealFrom = &mOtherWorkers[randomNumber];
-	
+
 	// no stealing from ourselves
 	if (dequeToStealFrom == this)
 	{
-		Yield();
+		return nullptr;
 	}
+
+	lock_guard lock(dequeToStealFrom->mJobDeque.GetMutex());
 
 	if (Job* job = dequeToStealFrom->mJobDeque.PopBack())
 	{
@@ -157,7 +172,7 @@ Job* JobWorker::GetJob()
 	else
 	{
 		// no job could be stolen
-		Yield();
+		return nullptr;
 	}
 
 	HTL_LOGT(mId, "no executable job found for queue size: " << mJobDeque.Size() <<
@@ -165,12 +180,26 @@ Job* JobWorker::GetJob()
 	return nullptr;
 }
 
+Job* JobWorker::GetJob()
+{
+	Job* job = GetJobFromOwnQueue();
+	if (job != nullptr)
+	{
+		return job;
+	}
+
+	return StealJobFromOtherQueue();
+}
+
 inline void JobWorker::WaitForJob()
 {
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	HTL_LOGT(mId, "waiting for jobs");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
-
-	mAwakeCondition.wait(lock, [this] { return !mJobDeque.IsEmpty() | !mRunning; });
+	mAwakeCondition.wait(lock, [this]
+		{
+			lock_guard jobLock(mJobDeque.GetMutex());
+			return !mJobDeque.IsEmpty() | !mRunning;
+		});
 	HTL_LOGT(mId, "awake success!");
 }

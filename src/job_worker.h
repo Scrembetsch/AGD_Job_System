@@ -19,6 +19,7 @@ private:
 	// Use static counter to signal Optick which worker this is
 	static std::atomic_uint32_t sWorkerCounter;
 
+	using lock_guard = std::lock_guard<std::mutex>;
 public:
 	JobWorker();
 
@@ -37,6 +38,11 @@ private:
 
 	void WaitForJob();
 	Job* GetJob();
+
+	Job* GetJobFromOwnQueue();
+	Job* StealJobFromOtherQueue();
+
+	bool AnyJobAvailable() const;
 
 	uint32_t mId;
 	std::thread mThread;

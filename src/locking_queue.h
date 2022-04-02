@@ -7,12 +7,11 @@
 #include <deque>
 
 // could use template class but since we are only using our queue for jobs we don't need any additional overhead
-//template <class T>
+// template <class T>
 class LockingDeque
 {
 private:
     using lock_guard = std::lock_guard<std::mutex>;
-
     // TODO:
     // not sure if public getter need to set a mutext on queue?
     // because functions are const -> mutex needs to be mutable
@@ -21,21 +20,24 @@ private:
     std::deque<Job*> mJobDeque;
 
 public:
+    // Get mutex to lock access outside of this class, otherwise lock is sometimes released to early
+    std::mutex& GetMutex() const
+    {
+        return mJobDequeMutex;
+    }
+
     bool IsEmpty() const
     {
-        lock_guard lock(mJobDequeMutex);
         return mJobDeque.empty();
     }
 
     size_t Size() const
     {
-        lock_guard lock(mJobDequeMutex);
         return mJobDeque.size();
     }
 
     Job* Front()
     {
-        lock_guard lock(mJobDequeMutex);
         if (mJobDeque.empty()) return nullptr;
 
         return mJobDeque.front();
@@ -44,7 +46,6 @@ public:
     // pull from private end
     Job* PopFront (bool ignoreContraints = false)
     {
-        lock_guard lock(mJobDequeMutex);
         if (mJobDeque.empty()) return nullptr;
 
         if (ignoreContraints || mJobDeque.front()->CanExecute())
@@ -57,17 +58,14 @@ public:
         return nullptr;
     }
 
-    // push to private end
     void PushFront(Job* job)
     {
-        lock_guard lock(mJobDequeMutex);
         mJobDeque.push_front(job);
     }
 
     // pull from public end (stealing)
     Job* PopBack(bool ignoreContraints = false)
     {
-        lock_guard lock(mJobDequeMutex);
         if (mJobDeque.empty()) return nullptr;
 
         if (ignoreContraints || mJobDeque.back()->CanExecute())
@@ -79,5 +77,4 @@ public:
         }
         return nullptr;
     }
-
 };
