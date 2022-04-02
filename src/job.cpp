@@ -1,17 +1,5 @@
-#pragma once
-
 #include "job.h"
 #include "defines.h"
-
-// TODO: remove/comment all stuff for printing information
-// setting up a guard_lock to be able to sync print and using cout for printing thread_id
-#include <iostream> // using cout to print thread_id, otherwise would need to create a stringstream
-#include <mutex>
-
-#ifdef EXTRA_DEBUG
-	// TODO: remove/comment all stuff for printing information
-	// setting up a guard_lock to be able to sync print and using cout for printing thread_id
-#endif
 
 Job::Job(JobFunc job, std::string name)
 	: mJobFunction{ job }, mName{ name }, mParent{ nullptr }
@@ -23,7 +11,7 @@ Job::Job(JobFunc job, std::string name, Job* parent)
 	: mJobFunction{ job }, mName{ name }, mParent{ parent }
 {
 	mParent->mUnfinishedJobs++;
-	HTL_LOGI("Increment on " << mParent->mName << " by: " << mName << ", Now: " << mParent->mUnfinishedJobs.load());
+	HTL_LOGI("Increment dependency on: " << mParent->mName << " by: " << mName << ", unfinishedJobs: " << mParent->mUnfinishedJobs.load());
 }
 
 std::string Job::GetName() const
@@ -40,11 +28,11 @@ void Job::AddDependency()
 	//}
 }
 
-// need something to check if dependencies are met
-// TODO: are there any other constraints so the Job can't be started?
+// need to check if dependencies are met
+// TODO: are there any additional other constraints so the Job can't be started?
 bool Job::CanExecute() const
 {
-	return (mUnfinishedJobs == 1);
+	return (mUnfinishedJobs.load() == 1);
 }
 
 void Job::Execute()
@@ -60,10 +48,26 @@ bool Job::IsFinished() const
 
 void Job::Finish(bool finishFromChild)
 {
-	//--mUnfinishedJobs; // rmw problem although using atomic value?
-	//const int32_t unfinishedJobs = mUnfinishedJobs.fetch_sub(1); // but fetch_ returns previous value :-o
+	// atomics override pre and postfix to execute in one instruction
+	// https://en.cppreference.com/w/cpp/atomic/atomic/operator_arith
+	// otherwise would ran in a rmw problems
+	// still, between decrementing and reading the state could be changes by another worker
+	// so creating and using only a local variable
+	std::int_fast32_t unfinishedJobs = (mUnfinishedJobs.fetch_sub(1) - 1);
+	HTL_LOGI("job " << mName << " finished with open dependecies: " << unfinishedJobs <<
+		" having parent: " << (mParent ? mParent->mName : "none") <<
+		" on thread #" << std::this_thread::get_id() << "...");
+
+	if (unfinishedJobs == 0 && mParent)
+	{
+		mParent->mUnfinishedJobs--;
+		HTL_LOGI("having parent " << (mParent ? mParent->mName : "none") << " with now open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs.load() : 0));
+	}
+
+	/*
+	// LEM: should not happen anymore because value for dependencies is atomically read and locally stored
+
 	mUnfinishedJobs--;
-	HTL_LOGI("Decrement on " << mName << ", Now: " << mUnfinishedJobs.load());
 	HTL_LOGI("job " << mName << " finished with open dependecies: " << mUnfinishedJobs.load() << " on thread #" << std::this_thread::get_id() << "...");
 
 	// Finish from child needed because:
@@ -78,6 +82,8 @@ void Job::Finish(bool finishFromChild)
 	{
 		// notify parent that dependent child finished work
 		HTL_LOGI("having parent " << (mParent ? mParent->mName : "none") << " with open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs : 0));
-		mParent->Finish(true);
+		//mParent->Finish(true); // no recusion needed!
+		mParent->mUnfinishedJobs--;
 	}
+	*/
 }
