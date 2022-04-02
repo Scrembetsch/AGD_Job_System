@@ -133,17 +133,13 @@ void UpdateParallel(JobSystem& jobSystem)
 	jobs.push_back(new Job(&UpdateCollision, "collision"));
 	jobs.push_back(new Job(&UpdatePhysics, "physics"));
 #endif
-	//jobs.push_back(new Job(&UpdateInput, "input"));
-	//jobs.push_back(new Job(&UpdateAnimation, "animation"));
-	//jobs.push_back(new Job(&UpdateParticles, "particles"));
-	//jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
-	//jobs.push_back(new Job(&UpdateSound, "sound"));
+	jobs.push_back(new Job(&UpdateInput, "input"));
+	jobs.push_back(new Job(&UpdateAnimation, "animation"));
+	jobs.push_back(new Job(&UpdateParticles, "particles"));
+	jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
+	jobs.push_back(new Job(&UpdateSound, "sound"));
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
-		if (jobs[i]->CanExecute())
-		{
-			std::cout << "";
-		}
 		jobSystem.AddJob(jobs[i]);
 	}
 
