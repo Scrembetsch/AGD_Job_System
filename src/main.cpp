@@ -70,7 +70,7 @@ using namespace std;
 		do { \
 			end = chrono::high_resolution_clock::now(); \
 		} while (chrono::duration_cast<chrono::microseconds>(end - start).count() < (DURATION)); \
-		cout << "job \"" << __func__ << "\" on thread #" << this_thread::get_id() << " done!\n"; \
+		HTL_LOG("job \"" << __func__ << "\" on thread #" << this_thread::get_id() << " done!"); \
 	} \
 
 // You can create other functions for testing purposes but those here need to run in your job system
@@ -98,7 +98,7 @@ void UpdateSerial()
 	UpdateGameElements();
 	UpdateSound();
 
-	HTL_LOGD("All jobs done!\n");
+	HTL_LOGD("All jobs done!");
 }
 
 std::mutex ThreadSafeLogger::mutex;
@@ -117,7 +117,7 @@ void UpdateParallel(JobSystem& jobSystem)
 
 	std::vector<Job*> jobs;
 
-	HTL_LOGD("---------- CREATING JOBS ----------\n");
+	HTL_LOGD("---------- CREATING JOBS ----------");
 
 #ifdef TEST_DEPENDENCIES
 	// Test if adding rendering first still respect dependencies
@@ -145,8 +145,8 @@ void UpdateParallel(JobSystem& jobSystem)
 
 	while (!jobSystem.AllJobsFinished());
 
-	HTL_LOGD("All jobs done on main thread #" << this_thread::get_id() << "...\n");
-	HTL_LOGD("---------- DELETING JOBS ----------\n");
+	HTL_LOGD("All jobs done on main thread #" << this_thread::get_id() << "...");
+	HTL_LOGD("---------- DELETING JOBS ----------");
 
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{

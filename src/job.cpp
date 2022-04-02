@@ -23,7 +23,7 @@ Job::Job(JobFunc job, std::string name, Job* parent)
 	: mJobFunction{ job }, mName{ name }, mParent{ parent }
 {
 	mParent->mUnfinishedJobs++;
-	HTL_LOGI("Increment on " << mName << " by: " << mParent->mName << ", Now: " << mUnfinishedJobs.load() << "\n");
+	HTL_LOGI("Increment on " << mName << " by: " << mParent->mName << ", Now: " << mUnfinishedJobs.load());
 }
 
 std::string Job::GetName() const
@@ -63,15 +63,15 @@ void Job::Finish(bool finishFromChild)
 	//--mUnfinishedJobs; // rmw problem although using atomic value?
 	//const int32_t unfinishedJobs = mUnfinishedJobs.fetch_sub(1); // but fetch_ returns previous value :-o
 	mUnfinishedJobs--;
-	HTL_LOGI("Decrement on " << mName << ", Now: " << mUnfinishedJobs.load() << "\n");
-	HTL_LOGI("job " << mName << " finished with open dependecies: " << mUnfinishedJobs.load() << " on thread #" << std::this_thread::get_id() << "...\n");
+	HTL_LOGI("Decrement on " << mName << ", Now: " << mUnfinishedJobs.load());
+	HTL_LOGI("job " << mName << " finished with open dependecies: " << mUnfinishedJobs.load() << " on thread #" << std::this_thread::get_id() << "...");
 
 	if (mUnfinishedJobs.load() == 0
 		&& mParent
 		/*&& !finishFromChild*/)
 	{
 		// notify parent that dependent child finished work
-		HTL_LOGI("having parent " << (mParent ? mParent->mName : "none") << " with open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs : 0) << "\n");
+		HTL_LOGI("having parent " << (mParent ? mParent->mName : "none") << " with open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs : 0));
 		mParent->Finish(true);
 	}
 }

@@ -50,7 +50,7 @@ void JobWorker::SetThreadAffinity()
 	if (dw == 0)
 	{
 		DWORD dwErr = GetLastError();
-		HTL_LOGE("SetThreadAffinityMask failed, GLE=" << dwErr << ")\n");
+		HTL_LOGE("SetThreadAffinityMask failed, GLE=" << dwErr << ")");
 	}
 #endif
 }
@@ -92,7 +92,7 @@ void JobWorker::Run()
 	while (mRunning)
 	{
 		HTL_LOGT(mId, "waiting for job");
-		//HTL_LOGD("waiting for job on worker thread #" << std::this_thread::get_id() << "...\n");
+		//HTL_LOGD("waiting for job on worker thread #" << std::this_thread::get_id() << "...");
 
 		if (mJobQueue.IsEmpty())
 		{
@@ -100,7 +100,7 @@ void JobWorker::Run()
 		}
 		else if (Job* job = GetJob())
 		{
-			HTL_LOGD("starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...\n");
+			HTL_LOGD("starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...");
 			job->Execute();
 			//job->Finish(); // EDITED: is now called internally
 
@@ -151,7 +151,7 @@ Job* JobWorker::GetJob()
 	}
 #endif
 
-	HTL_LOGD("no executable job found for queue size: " << mJobQueue.Size() << " on worker thread #" << std::this_thread::get_id() << ":\n");
+	HTL_LOGD("no executable job found for queue size: " << mJobQueue.Size() << " on worker thread #" << std::this_thread::get_id() << ":");
 	return nullptr;
 }
 
