@@ -88,8 +88,9 @@ void JobWorker::Shutdown()
 
 	// wait for thread end
 	// Q: either need to wake up to go sleep or just end?
-	//mAwakeCondition.notify_one();
-	//mThread.join();
+	// A: Without this jobsystem doesn't shutdown correctly
+	mAwakeCondition.notify_one();
+	mThread.join();
 #ifdef EXTRA_DEBUG
 	thread_log(mId, "job successfully shutdown");
 #endif
@@ -118,7 +119,7 @@ void JobWorker::Run()
 			#endif
 			job->Execute();
 			//job->Finish(); // EDITED: is now called internally
-			
+
 			// HINT: this can be a problem if setting value gets ordered before job is finished
 			// try using a write barrier to ensure val is really written after finish
 			//_ReadWriteBarrier(); // TODO: (for MS, std atomic fence)
@@ -180,5 +181,6 @@ inline void JobWorker::WaitForJob()
 {
 	unique_lock lock(mAwakeMutex);
 	thread_log(mId, "awaking");
-	mAwakeCondition.wait(lock, [this] { return !mJobQueue.IsEmpty(); });
+	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
+	mAwakeCondition.wait(lock, [this] { return !mJobQueue.IsEmpty() | !mRunning; });
 }
