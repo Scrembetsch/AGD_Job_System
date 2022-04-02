@@ -29,3 +29,12 @@ bool JobSystem::AllJobsFinished() const
 	}
 	return true;
 }
+
+void JobSystem::ShutDown()
+{
+	printf("shutting down jobsystem...");
+	for (uint32_t i = 0; i < mNumWorkers; i++)
+	{
+		mWorkers[i].Shutdown();
+	}
+};

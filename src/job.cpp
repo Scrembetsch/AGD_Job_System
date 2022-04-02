@@ -1,14 +1,13 @@
 #pragma once
 
 #include "job.h"
+#include "defines.h"
 
 // TODO: remove/comment all stuff for printing information
 // setting up a guard_lock to be able to sync print and using cout for printing thread_id
 #include <iostream> // using cout to print thread_id, otherwise would need to create a stringstream
 #include <mutex>
 
-// TODO: move together with macros from other files to defines.h file
-//#define EXTRA_DEBUG // allows locked print output
 #ifdef EXTRA_DEBUG
 	// TODO: remove/comment all stuff for printing information
 	// setting up a guard_lock to be able to sync print and using cout for printing thread_id
@@ -42,25 +41,25 @@ bool Job::CanExecute() const
 void Job::Execute()
 {
 	mJobFunction();
+	Finish();
 }
 
 bool Job::IsFinished() const
 {
-	return (mUnfinishedJobs == 0);
+	return (mUnfinishedJobs.load() == 0);
 }
 
 void Job::Finish()
 {
-	//mUnfinishedJobs--; // rmw problem?
-	const int32_t unfinishedJobs = --mUnfinishedJobs;
+	//--mUnfinishedJobs; // rmw problem although using atomic value?
+	//const int32_t unfinishedJobs = mUnfinishedJobs.fetch_sub(1); // but fetch_ returns previous value :-o
+	mUnfinishedJobs.store(mUnfinishedJobs.load() - 1);
 
 #ifdef EXTRA_DEBUG
-	const std::lock_guard<std::mutex> lock(g_i_mutex);
-	std::cout << "job " << mName << " finished with open dependecies: " << mUnfinishedJobs << " on thread #" << std::this_thread::get_id() << "...\n";
+	std::cout << "job " << mName << " finished with open dependecies: " << mUnfinishedJobs.load() << " on thread #" << std::this_thread::get_id() << "...\n";
 #endif
 
-	//if (IsFinished() && mParent)
-	if (unfinishedJobs == 0 && mParent)
+	if (mUnfinishedJobs.load() == 0 && mParent)
 	{
 		// notify parent that dependent child finished work
 		#ifdef EXTRA_DEBUG

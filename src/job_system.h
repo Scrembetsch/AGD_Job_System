@@ -2,19 +2,20 @@
 
 #include "job_worker.h"
 
-#include <vector>
-
 class JobSystem
 {
 public:
 	JobSystem(uint32_t numThreads);
 	~JobSystem();
 
-	// HINT: Probably best to change to Job* when adding dependencies
 	void AddJob(Job* job);
 	bool AllJobsFinished() const;
+
+	void ShutDown();
+
 private:
 	// Q: Should we change this to atomic counter? Shouldn't make too much difference if multiple threads add jobs at the same time
+	// LEM: I think we are only add jobs from main_runner thread so this shouldn't be necessary
 	uint32_t mCurrentWorkerId;
 
 	// Use basic array instead of vector, because vector complains about deleted copy-constructor

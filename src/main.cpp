@@ -46,6 +46,7 @@ bis 15.04.
 #include "../optick/src/optick.h"
 
 #include "argument_parser.h"
+#include "defines.h"
 #include "job_system.h"
 
 #include <thread>
@@ -58,16 +59,6 @@ bool isRunningParallel = false;
 
 // NO :(
 using namespace std;
-
-// custom defines for easier testing
-// TODO: move together with macros from other files to defines.h file
-//#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
-//#define TEST_DEPENDENCIES // test if correct dependencies are met
-//#define EXTRA_DEBUG // additional debug output
-
-#ifdef _DEBUG
-	#define EXTRA_DEBUG
-#endif
 
 // Don't change this macros (unless for removing Optick if you want) - if you need something
 // for your local testing, create a new one for yourselves.
@@ -253,13 +244,17 @@ int main(int argc, char** argv)
 	});
 
 	cout << "starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main_runner thread #" << main_runner.get_id() << "...\n";
-
 	printf("Type anything to quit...\n");
+	
 	char c;
 	scanf_s("%c", &c, 1);
 	printf("Quitting...\n");
 	isRunning = false;
 
+	printf("shutting down all worker threads...\n");
+	jobSystem.ShutDown();
+
+	printf("waiting for main_runner to join...\n");
 	main_runner.join();
 
 	OPTICK_SHUTDOWN();

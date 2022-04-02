@@ -101,9 +101,6 @@
     <ClInclude Include="src\argument_parser.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
-    <ClInclude Include="src\log.h">
-      <Filter>jobsystem</Filter>
-    </ClInclude>
     <ClInclude Include="src\job_system.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
@@ -111,6 +108,15 @@
       <Filter>jobsystem</Filter>
     </ClInclude>
     <ClInclude Include="src\job.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\defines.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\locking_queue.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lockless_queue.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
   </ItemGroup>

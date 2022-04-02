@@ -1,11 +1,15 @@
 #pragma once
 
-#include "job.h"
+#include "defines.h"
+#ifdef USING_LOCKLESS
+	#include "lockless_queue.h"
+#else
+	#include "locking_queue.h"
+#endif
 
 #include <cstdint>
 #include <mutex>
 #include <thread>
-#include <queue>
 
 class JobWorker
 {
@@ -20,6 +24,8 @@ public:
 	void AddJob(Job* job);
 	bool AllJobsFinished() const;
 
+	void Shutdown();
+
 private:
 	void Run();
 	void SetThreadAffinity();
@@ -32,9 +38,12 @@ private:
 	std::mutex mAwakeMutex;
 	std::condition_variable mAwakeCondition;
 
-	// Could also move these two into a container class, but this should be less work for lock-less
-	std::mutex mJobQueueMutex;
-	std::queue<Job*> mJobQueue;
+#ifdef USING_LOCKLESS
+	LocklessQueue mJobQueue;
+#else
+	LockingQueue mJobQueue;
+#endif
 
 	std::atomic_bool mJobRunning = false;
+	bool mRunning = true;
 };

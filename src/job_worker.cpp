@@ -1,5 +1,4 @@
 ﻿#include "job_worker.h"
-#include "log.h"
 #include "../optick/src/optick.h"
 
 #include <string>
@@ -36,12 +35,18 @@ JobWorker::JobWorker() : mId(sWorkerCounter++)
 		Run();
 	});
 	SetThreadAffinity();
+	// Q: could run thread detached if not wanting them to join?
+	//mThread.detach();
 }
 
 JobWorker::~JobWorker()
 {
-	mAwakeCondition.notify_one();
-	mThread.join();
+	// Q: I don't really understand what this should do?
+	//mAwakeCondition.notify_one();
+	//mThread.join();
+#ifdef EXTRA_DEBUG
+	thread_log(mId, "~destructing worker");
+#endif
 }
 
 void JobWorker::SetThreadAffinity()
@@ -58,8 +63,7 @@ void JobWorker::SetThreadAffinity()
 
 void JobWorker::AddJob(Job* job)
 {
-	lock_guard lock(mJobQueueMutex);
-	mJobQueue.push(job);
+	mJobQueue.Push(job);
 	mAwakeCondition.notify_one();
 }
 
@@ -67,21 +71,43 @@ void JobWorker::AddJob(Job* job)
 // so either need to synchronize or get rid of
 bool JobWorker::AllJobsFinished() const
 {
-	return !(!mJobQueue.empty() || mJobRunning);
+	return !(!mJobQueue.IsEmpty() || mJobRunning);
+}
+
+void JobWorker::Shutdown()
+{
+#ifdef EXTRA_DEBUG
+	thread_log(mId, "shutdown job...");
+#endif
+	// breaking the worker loop
+	mRunning = false;
+
+	// need to clear all remaining tasks
+	mJobRunning = false;
+	while (!mJobQueue.IsEmpty()) mJobQueue.Pop();
+
+	// wait for thread end
+	// Q: either need to wake up to go sleep or just end?
+	//mAwakeCondition.notify_one();
+	//mThread.join();
+#ifdef EXTRA_DEBUG
+	thread_log(mId, "job successfully shutdown");
+#endif
 }
 
 void JobWorker::Run()
 {
 	#ifdef EXTRA_DEBUG
-		std::cout << "starting worker thread #" << std::this_thread::get_id() << "...\n";
+		thread_log(mId, "starting worker");
 	#endif
-	while (true)
+	while (mRunning)
 	{
 		#ifdef EXTRA_DEBUG
-			std::cout << "waiting for job on worker thread #" << std::this_thread::get_id() << "...\n";
+			thread_log(mId, "waiting for job");
+			//std::cout << "waiting for job on worker thread #" << std::this_thread::get_id() << "...\n";
 		#endif
 
-		if (mJobQueue.empty())
+		if (mJobQueue.IsEmpty())
 		{
 			WaitForJob();
 		}
@@ -91,7 +117,7 @@ void JobWorker::Run()
 				std::cout << "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()) << " on worker thread #" << std::this_thread::get_id() << "...\n";
 			#endif
 			job->Execute();
-			job->Finish();
+			//job->Finish(); // EDITED: is now called internally
 			
 			// HINT: this can be a problem if setting value gets ordered before job is finished
 			// try using a write barrier to ensure val is really written after finish
@@ -102,55 +128,50 @@ void JobWorker::Run()
 			{
 				mJobRunning = false;
 			}
+			else
+			{
+				thread_log(1, "\t!!! ERROR: job not finished after execution :-o");
+			}
 		}
 		else
 		{
 			// go back to sleep if no executable jobs are available
 			#ifdef EXTRA_DEBUG
-				std::cout << "going to sleep on worker thread #" << std::this_thread::get_id() << "...\n";
+				thread_log(mId, "going to sleep on worker thread");
+				//std::cout << "going to sleep on worker thread #" << std::this_thread::get_id() << "...\n";
 			#endif
+
 			std::this_thread::yield();
 		}
 	}
+	#ifdef EXTRA_DEBUG
+		thread_log(mId, "job end run");
+	#endif
 }
 
 Job* JobWorker::GetJob()
 {
-	lock_guard lock(mJobQueueMutex);
-	if (mJobQueue.empty())
-	{
-		#ifdef EXTRA_DEBUG
-			std::cout << " -> returning because of empty queue from worker thread #" << std::this_thread::get_id() << "...\n";
-		#endif
-		return nullptr;
-	}
-
-	if (mJobQueue.front()->CanExecute())
+	if (Job* job = mJobQueue.Pop())
 	{
 		mJobRunning = true;
-		Job *job = mJobQueue.front();
-		mJobQueue.pop();
 		return job;
 	}
 	// TODO: try stealing from another worker queue
+#ifdef TEST_ONLY_ONE_FRAME
 	// currently just re-pushing current first element to get the next
-	else if (mJobQueue.size() > 1)
+	else if (mJobQueue.Size() > 1)
 	{
-		Job* job = mJobQueue.front();
-		mJobQueue.pop();
-		mJobQueue.push(job);
-
-		if (mJobQueue.front()->CanExecute())
+		mJobQueue.Push(mJobQueue.Pop(true));
+		if (Job* job = mJobQueue.Pop())
 		{
 			mJobRunning = true;
-			job = mJobQueue.front();
-			mJobQueue.pop();
 			return job;
 		}
 	}
+#endif
 
 	#ifdef EXTRA_DEBUG
-		std::cout << "no executable job found for queue size: " << mJobQueue.size() << " on worker thread #" << std::this_thread::get_id() << "...\n";
+		std::cout << "no executable job found for queue size: " << mJobQueue.Size() << " on worker thread #" << std::this_thread::get_id() << ":\n";
 	#endif
 	return nullptr;
 }
@@ -158,5 +179,6 @@ Job* JobWorker::GetJob()
 inline void JobWorker::WaitForJob()
 {
 	unique_lock lock(mAwakeMutex);
-	mAwakeCondition.wait(lock, [this] { return !mJobQueue.empty(); });
+	thread_log(mId, "awaking");
+	mAwakeCondition.wait(lock, [this] { return !mJobQueue.IsEmpty(); });
 }
