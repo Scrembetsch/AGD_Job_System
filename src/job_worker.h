@@ -19,7 +19,6 @@ private:
 
 public:
 	JobWorker();
-	~JobWorker();
 
 	void AddJob(Job* job);
 	bool AllJobsFinished() const;

@@ -33,6 +33,14 @@ public:
         return mJobDeque.size();
     }
 
+    Job* Front()
+    {
+        lock_guard lock(mJobQueueMutex);
+        if (mJobDeque.empty()) return nullptr;
+
+        return mJobDeque.front();
+    }
+
     // pull from private end
     Job* PopFront (bool ignoreContraints = false)
     {

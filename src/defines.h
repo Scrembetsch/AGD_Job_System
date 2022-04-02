@@ -11,7 +11,7 @@
 
 #define HTL_LOGE(message) ThreadSafeLogger::Logger << "[ERROR]  " << message << "\n";
 #define HTL_LOGW(message) ThreadSafeLogger::Logger << "[WARNING]"
-#if defined(_DEBUG) || defined(EXTRA_DEBUG)
+#if defined(EXTRA_DEBUG)
 #define HTL_LOGD(message) ThreadSafeLogger::Logger << "[DEBUG]  " << message << "\n";
 #else
 #define HTL_LOGD(message) ;
@@ -21,9 +21,9 @@
 #else
 #define HTL_LOGI(message) ;
 #endif
-#define HTL_LOGTE(threadId, message) HTL_LOGE("\x1B[" << threadId + 31 << "m" << message << " on thread # " << threadId << "\033[0m");
+#define HTL_LOGTE(threadId, message) HTL_LOGE("\x1B[" << threadId + 31 << "m" << message << " on thread #" << threadId << "\033[0m");
 #if defined(EXTRA_DEBUG)
-#define HTL_LOGT(threadId, message) HTL_LOGI("\x1B[" << threadId + 31 << "m" << message << " on thread # " << threadId << "\033[0m");
+#define HTL_LOGT(threadId, message) HTL_LOGI("\x1B[" << threadId + 31 << "m" << message << " on thread #" << threadId << "\033[0m");
 #else
 #define HTL_LOGT(threadId, message) ;
 #endif
