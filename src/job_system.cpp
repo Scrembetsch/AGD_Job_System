@@ -24,6 +24,7 @@ bool JobSystem::AllJobsFinished() const
 	{
 		if (!mWorkers[i].AllJobsFinished())
 		{
+			//HTL_LOGD("Worker " << i << " remaining jobs: " << mWorkers[i].GetNumJobs());
 			return false;
 		}
 	}

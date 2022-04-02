@@ -140,6 +140,10 @@ void UpdateParallel(JobSystem& jobSystem)
 	//jobs.push_back(new Job(&UpdateSound, "sound"));
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
+		if (jobs[i]->CanExecute())
+		{
+			std::cout << "";
+		}
 		jobSystem.AddJob(jobs[i]);
 	}
 

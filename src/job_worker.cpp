@@ -68,6 +68,11 @@ bool JobWorker::AllJobsFinished() const
 	return !(!mJobQueue.IsEmpty() || mJobRunning);
 }
 
+size_t JobWorker::GetNumJobs() const
+{
+	return mJobQueue.Size();
+}
+
 void JobWorker::Shutdown()
 {
 	HTL_LOGT(mId, "shutdown job...");
@@ -158,7 +163,8 @@ Job* JobWorker::GetJob()
 inline void JobWorker::WaitForJob()
 {
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
-	HTL_LOGT(mId, "awaking");
+	HTL_LOGT(mId, "Waiting for jobs...");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
 	mAwakeCondition.wait(lock, [this] { return !mJobQueue.IsEmpty() | !mRunning; });
+	HTL_LOGT(mId, "Awake success");
 }
