@@ -57,7 +57,7 @@ void JobWorker::SetThreadAffinity()
 
 void JobWorker::AddJob(Job* job)
 {
-	mJobQueue.Push(job);
+	mJobDeque.PushFront(job);
 	mAwakeCondition.notify_one();
 }
 
@@ -65,12 +65,12 @@ void JobWorker::AddJob(Job* job)
 // so either need to synchronize or get rid of
 bool JobWorker::AllJobsFinished() const
 {
-	return !(!mJobQueue.IsEmpty() || mJobRunning);
+	return !(!mJobDeque.IsEmpty() || mJobRunning);
 }
 
 size_t JobWorker::GetNumJobs() const
 {
-	return mJobQueue.Size();
+	return mJobDeque.Size();
 }
 
 void JobWorker::Shutdown()
@@ -81,7 +81,7 @@ void JobWorker::Shutdown()
 
 	// need to clear all remaining tasks
 	mJobRunning = false;
-	while (!mJobQueue.IsEmpty()) mJobQueue.Pop();
+	while (!mJobDeque.IsEmpty()) mJobDeque.PopFront();
 
 	// wait for thread end
 	// Q: either need to wake up to go sleep or just end?
@@ -99,7 +99,7 @@ void JobWorker::Run()
 		HTL_LOGT(mId, "waiting for job");
 		//HTL_LOGD("waiting for job on worker thread #" << std::this_thread::get_id() << "...");
 
-		if (mJobQueue.IsEmpty())
+		if (mJobDeque.IsEmpty())
 		{
 			WaitForJob();
 		}
@@ -137,12 +137,14 @@ void JobWorker::Run()
 
 Job* JobWorker::GetJob()
 {
-	if (Job* job = mJobQueue.Pop())
+	if (Job* job = mJobDeque.PopFront())
 	{
 		mJobRunning = true;
 		return job;
 	}
-	// TODO: try stealing from another worker queue
+
+	// try stealing from another worker queue
+
 #ifdef TEST_ONLY_ONE_FRAME
 	// currently just re-pushing current first element to get the next
 	else if (mJobQueue.Size() > 1)
@@ -156,7 +158,7 @@ Job* JobWorker::GetJob()
 	}
 #endif
 
-	HTL_LOGD("no executable job found for queue size: " << mJobQueue.Size() << " on worker thread #" << std::this_thread::get_id() << ":");
+	HTL_LOGD("no executable job found for queue size: " << mJobDeque.Size() << " on worker thread #" << std::this_thread::get_id() << ":");
 	return nullptr;
 }
 
@@ -165,6 +167,6 @@ inline void JobWorker::WaitForJob()
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	HTL_LOGT(mId, "Waiting for jobs...");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
-	mAwakeCondition.wait(lock, [this] { return !mJobQueue.IsEmpty() | !mRunning; });
+	mAwakeCondition.wait(lock, [this] { return !mJobDeque.IsEmpty() | !mRunning; });
 	HTL_LOGT(mId, "Awake success");
 }

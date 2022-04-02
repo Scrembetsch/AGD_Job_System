@@ -42,7 +42,7 @@ private:
 #ifdef USING_LOCKLESS
 	LocklessQueue mJobQueue;
 #else
-	LockingQueue mJobQueue;
+	LockingDeque mJobDeque;
 #endif
 
 	std::atomic_bool mJobRunning = false;

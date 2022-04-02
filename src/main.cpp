@@ -50,6 +50,7 @@ bis 15.04.
 #include "job_system.h"
 
 #include <thread>
+#include <vector>
 #include <atomic>
 #include <iostream> // using cout to print thread_id, otherwise would need to create a stringstream
 
