@@ -35,7 +35,7 @@ public:
 
     Job* Front()
     {
-        lock_guard lock(mJobQueueMutex);
+        lock_guard lock(mJobDequeMutex);
         if (mJobDeque.empty()) return nullptr;
 
         return mJobDeque.front();

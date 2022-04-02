@@ -117,6 +117,7 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "job end run");
 }
 
+
 Job* JobWorker::GetJob()
 {
 	if (Job* job = mJobDeque.PopFront())
@@ -124,21 +125,18 @@ Job* JobWorker::GetJob()
 		mJobRunning = true;
 		return job;
 	}
+	// TODO: try stealing from another worker queue
 
-	// try stealing from another worker queue
-
-#ifdef TEST_ONLY_ONE_FRAME
 	// currently just re-pushing current first element to get the next
 	else if (mJobDeque.Size() > 1)
 	{
-		mJobDeque.Push(mJobDeque.Pop(true));
-		if (Job* job = mJobDeque.Pop())
+		mJobDeque.PushFront(mJobDeque.PopFront(true));
+		if (Job* job = mJobDeque.PopFront())
 		{
 			mJobRunning = true;
 			return job;
 		}
 	}
-
 
 	HTL_LOGT(mId, "no executable job found for queue size: " << mJobDeque.Size() <<
 		", job: " << mJobDeque.Front()->GetName() << " with dependencies: " << mJobDeque.Front()->GetUnfinishedJobs());
