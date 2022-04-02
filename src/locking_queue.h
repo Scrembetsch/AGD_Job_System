@@ -32,6 +32,14 @@ public:
         return mJobQueue.size();
     }
 
+    Job* Front()
+    {
+        lock_guard lock(mJobQueueMutex);
+        if (mJobQueue.empty()) return nullptr;
+
+        return mJobQueue.front();
+    }
+
     // combining Front and Pop in our implementation
     Job* Pop (bool ignoreContraints = false)
     {
