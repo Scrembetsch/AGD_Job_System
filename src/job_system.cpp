@@ -7,8 +7,7 @@ JobSystem::JobSystem(uint32_t numThreads)
 {
 	for (uint32_t i = 0; i < mNumWorkers; i++)
 	{
-		mWorkers[i].mNumWorkers = mNumWorkers;
-		mWorkers[i].mOtherWorkers = mWorkers;
+		mWorkers[i].mJobSystem = this;
 	}
 }
 

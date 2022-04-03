@@ -1,4 +1,5 @@
 ﻿#include "job_worker.h"
+#include "job_system.h"
 #include "../optick/src/optick.h"
 
 #ifdef _WIN32
@@ -150,13 +151,14 @@ Job* JobWorker::GetJobFromOwnQueue()
 Job* JobWorker::StealJobFromOtherQueue()
 {
 	// try stealing from another random worker queue
-	unsigned int randomNumber = mRanNumGen.Rand(0, mNumWorkers);
-	JobWorker* dequeToStealFrom = &mOtherWorkers[randomNumber];
+	unsigned int randomNumber = mJobSystem->mRanNumGen.Rand(0, mJobSystem->mNumWorkers);
+	JobWorker* dequeToStealFrom = &mJobSystem->mWorkers[randomNumber];
 
-	// no stealing from ourselves
+	// no stealing from ourselves, try the next one instead
 	if (dequeToStealFrom == this)
 	{
-		return nullptr;
+		randomNumber = (randomNumber + 1) % mJobSystem->mNumWorkers;
+		dequeToStealFrom = &mJobSystem->mWorkers[randomNumber];
 	}
 
 	lock_guard lock(dequeToStealFrom->mJobDeque.GetMutex());

@@ -10,8 +10,7 @@
 #include <cstdint>
 #include <mutex>
 #include <thread>
-
-#include "random.h"
+class JobSystem;
 
 class JobWorker
 {
@@ -29,8 +28,7 @@ public:
 
 	void Shutdown();
 
-	JobWorker* mOtherWorkers;
-	uint32_t mNumWorkers;
+	JobSystem* mJobSystem;
 
 private:
 	void Run();
@@ -57,6 +55,4 @@ private:
 
 	std::atomic_bool mJobRunning = false;
 	std::atomic_bool mRunning = true;
-
-	Random mRanNumGen;
 };
