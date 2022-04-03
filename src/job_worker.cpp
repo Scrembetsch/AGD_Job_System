@@ -155,13 +155,10 @@ Job* JobWorker::GetJobFromOwnQueue()
 	{
 		return job;
 	}
-	// if current next job can't be executed because of dependencies
-	// re-push it and try get the next one
+	// if current front job can't be executed because of dependencies try back
 	else if (mJobDeque.Size() > 1)
 	{
-		// TODO: maybe implement pop-push-pop as one command?
-		mJobDeque.PushFront(mJobDeque.PopFront(true));
-		if (Job* job = mJobDeque.PopFront())
+		if (Job* job = mJobDeque.PopBack())
 		{
 			return job;
 		}
@@ -183,9 +180,9 @@ Job* JobWorker::StealJobFromOtherQueue()
 	}
 
 	HTL_LOGT(mId, "Stealing job from worker queue #" << randomNumber);
-	JobWorker* dequeToStealFrom = &mJobSystem->mWorkers[randomNumber];
-	lock_guard lock(dequeToStealFrom->mJobDeque.GetMutex());
-	if (Job* job = dequeToStealFrom->mJobDeque.PopBack())
+	JobWorker* workerToStealFrom = &mJobSystem->mWorkers[randomNumber];
+	lock_guard lock(workerToStealFrom->mJobDeque.GetMutex());
+	if (Job* job = workerToStealFrom->mJobDeque.PopBack())
 	{
 		// successfully stolen a job from another queues public end
 		HTL_LOGT(mId, "Job " << job->GetName() << " successfully stolen");

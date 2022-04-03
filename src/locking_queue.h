@@ -44,13 +44,13 @@ public:
     }
 
     // pull from private end
-    Job* PopFront (bool ignoreContraints = false)
+    Job* PopFront ()
     {
         if (mJobDeque.empty()) return nullptr;
 
-        if (ignoreContraints || mJobDeque.front()->CanExecute())
+        if (mJobDeque.front()->CanExecute())
         {
-            // combining Front and Pop in our implementation
+            // combining front and pop in our implementation
             Job* job = mJobDeque.front();
             mJobDeque.pop_front();
             return job;
@@ -64,13 +64,13 @@ public:
     }
 
     // pull from public end (stealing)
-    Job* PopBack(bool ignoreContraints = false)
+    Job* PopBack()
     {
         if (mJobDeque.empty()) return nullptr;
 
-        if (ignoreContraints || mJobDeque.back()->CanExecute())
+        if (mJobDeque.back()->CanExecute())
         {
-            // combining Back and Pop in our implementation
+            // combining back and pop in our implementation
             Job* job = mJobDeque.back();
             mJobDeque.pop_back();
             return job;
