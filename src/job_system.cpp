@@ -5,7 +5,7 @@ JobSystem::JobSystem(uint32_t numThreads)
 	, mNumWorkers(numThreads)
 	, mWorkers(new JobWorker[numThreads])
 {
-	for (int i = 0; i < mNumWorkers; i++)
+	for (uint32_t i = 0; i < mNumWorkers; i++)
 	{
 		mWorkers[i].mNumWorkers = mNumWorkers;
 		mWorkers[i].mOtherWorkers = mWorkers;
@@ -20,6 +20,7 @@ JobSystem::~JobSystem()
 void JobSystem::AddJob(Job* job)
 {
 	mWorkers[mCurrentWorkerId].AddJob(job);
+	// Circle through workers
 	mCurrentWorkerId = (++mCurrentWorkerId) % mNumWorkers;
 }
 
@@ -29,7 +30,6 @@ bool JobSystem::AllJobsFinished() const
 	{
 		if (!mWorkers[i].AllJobsFinished())
 		{
-			//HTL_LOGD("Worker " << i << " remaining jobs: " << mWorkers[i].GetNumJobs());
 			return false;
 		}
 	}

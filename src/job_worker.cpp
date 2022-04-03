@@ -85,13 +85,13 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "starting worker");
 	while (mRunning)
 	{
-		HTL_LOGT(mId, "waiting for job");
-
 		if (!AnyJobAvailable())
 		{
 			WaitForJob();
 		}
-		else if (Job* job = GetJob())
+		// Fake job running, so worker doesn't get shut down between getting job and setting JobRunning
+		mJobRunning = true;
+		if (Job* job = GetJob())
 		{
 			HTL_LOGT(mId, "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()));
 			job->Execute();
@@ -114,6 +114,7 @@ void JobWorker::Run()
 		{
 			// go back to sleep if no executable jobs are available
 			HTL_LOGT(mId, "going to sleep on worker thread");
+			mJobRunning = false;
 			std::this_thread::yield();
 		}
 	}
@@ -132,7 +133,6 @@ Job* JobWorker::GetJobFromOwnQueue()
 	// execute our own jobs first
 	if (Job* job = mJobDeque.PopFront())
 	{
-		mJobRunning = true;
 		return job;
 	}
 	// currently just re-pushing current first element to get the next
@@ -141,7 +141,6 @@ Job* JobWorker::GetJobFromOwnQueue()
 		mJobDeque.PushFront(mJobDeque.PopFront(true));
 		if (Job* job = mJobDeque.PopFront())
 		{
-			mJobRunning = true;
 			return job;
 		}
 	}
@@ -166,7 +165,6 @@ Job* JobWorker::StealJobFromOtherQueue()
 	{
 		// successfully stolen a job from another queues public end
 		HTL_LOGT(mId, "Job successfully stolen");
-		mJobRunning = true;
 		return job;
 	}
 	else

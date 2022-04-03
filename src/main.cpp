@@ -103,7 +103,7 @@ void UpdateSerial()
 	HTL_LOGD("All jobs done!");
 }
 
-std::mutex ThreadSafeLogger::mutex;
+std::mutex ThreadSafeLogger::mMutex;
 ThreadSafeLogger ThreadSafeLogger::Logger;
 
 /*
@@ -172,22 +172,22 @@ uint32_t GetNumThreads(const ArgumentParser& argParser)
 		if (threads > maxThreads)
 		{
 			threads = maxThreads;
-			printf("Specified number of threads is more than the available %d!\nDefaulting to: %d\n", maxThreads, threads);
+			HTL_LOG("Specified number of threads is more than the available " << maxThreads << "!\nDefaulting to : " << threads << "\n");
 		}
 		else if (threads == 0)
 		{
 			threads = 1;
-			printf("Need at least one worker!\nDefaulting to: %d\n", threads);
+			HTL_LOG("Need at least one worker!\nDefaulting to: " << threads);
 		}
 		else
 		{
-			printf("Specified number of threads: %d\n", threads);
+			HTL_LOG("Specified number of threads: " << threads);
 
 		}
 	}
 	else
 	{
-		printf("No number of cores specified.\nDefaulting to: %d\n", threads);
+		HTL_LOG("No number of cores specified.\nDefaulting to: " << threads);
 	}
 
 	return threads;
@@ -242,18 +242,18 @@ int main(int argc, char** argv)
 		}
 	});
 
-	cout << "starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main_runner thread #" << main_runner.get_id() << "...\n";
-	printf("Type anything to quit...\n");
+	HTL_LOG("starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main_runner thread #" << main_runner.get_id() << "...");
+	HTL_LOG("Type anything to quit...");
 
 	char c;
 	scanf_s("%c", &c, 1);
-	printf("Quitting...\n");
+	HTL_LOG("Quitting...");
 	isRunning = false;
 
-	printf("shutting down all worker threads...\n");
+	HTL_LOG("shutting down all worker threads...");
 	jobSystem.ShutDown();
 
-	printf("waiting for main_runner to join...\n");
+	HTL_LOG("waiting for main_runner to join...");
 	main_runner.join();
 
 	OPTICK_SHUTDOWN();
