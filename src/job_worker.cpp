@@ -19,6 +19,7 @@ std::atomic_uint32_t JobWorker::sWorkerCounter = 0;
 
 JobWorker::JobWorker() : mId(sWorkerCounter++)
 {
+	HTL_LOGT(mId, "creating worker");
 	mThread = std::thread([this]()
 	{
 		std::string workerName("Worker " + std::to_string(mId));
@@ -40,6 +41,8 @@ void JobWorker::SetThreadAffinity()
 		DWORD dwErr = GetLastError();
 		HTL_LOGE("SetThreadAffinityMask failed, GLE=" << dwErr << ")");
 	}
+#else
+	HTL_LOGW("SetThreadAffinityMask currently only supported on _WIN32");
 #endif
 }
 
@@ -128,6 +131,22 @@ bool JobWorker::AnyJobAvailable() const
 	return !mJobDeque.IsEmpty();
 }
 
+Job* JobWorker::GetJob()
+{
+	if (Job* job = GetJobFromOwnQueue())
+	{
+		return job;
+	}
+	else if (Job* job = StealJobFromOtherQueue())
+	{
+		return job;
+	}
+
+	lock_guard lock(mJobDeque.GetMutex());
+	HTL_LOGT(mId, "no executable job found for queue size: " << mJobDeque.Size());
+	return nullptr;
+}
+
 Job* JobWorker::GetJobFromOwnQueue()
 {
 	lock_guard lock(mJobDeque.GetMutex());
@@ -136,9 +155,11 @@ Job* JobWorker::GetJobFromOwnQueue()
 	{
 		return job;
 	}
-	// currently just re-pushing current first element to get the next
+	// if current next job can't be executed because of dependencies
+	// re-push it and try get the next one
 	else if (mJobDeque.Size() > 1)
 	{
+		// TODO: maybe implement pop-push-pop as one command?
 		mJobDeque.PushFront(mJobDeque.PopFront(true));
 		if (Job* job = mJobDeque.PopFront())
 		{
@@ -150,45 +171,27 @@ Job* JobWorker::GetJobFromOwnQueue()
 
 Job* JobWorker::StealJobFromOtherQueue()
 {
+	if (mJobSystem->mNumWorkers < 2) return nullptr;
+
 	// try stealing from another random worker queue
 	unsigned int randomNumber = mJobSystem->mRanNumGen.Rand(0, mJobSystem->mNumWorkers);
-	JobWorker* dequeToStealFrom = &mJobSystem->mWorkers[randomNumber];
-
 	// no stealing from ourselves, try the next one instead
-	if (dequeToStealFrom == this)
+	// random generated index is the same as internal thread id
+	if (randomNumber == mId)
 	{
 		randomNumber = (randomNumber + 1) % mJobSystem->mNumWorkers;
-		dequeToStealFrom = &mJobSystem->mWorkers[randomNumber];
 	}
 
+	HTL_LOGT(mId, "Stealing job from worker queue #" << randomNumber);
+	JobWorker* dequeToStealFrom = &mJobSystem->mWorkers[randomNumber];
 	lock_guard lock(dequeToStealFrom->mJobDeque.GetMutex());
-
 	if (Job* job = dequeToStealFrom->mJobDeque.PopBack())
 	{
 		// successfully stolen a job from another queues public end
-		HTL_LOGT(mId, "Job successfully stolen");
+		HTL_LOGT(mId, "Job " << job->GetName() << " successfully stolen");
 		return job;
 	}
-	else
-	{
-		// no job could be stolen
-		return nullptr;
-	}
-
-	HTL_LOGT(mId, "no executable job found for queue size: " << mJobDeque.Size() <<
-		", job: " << mJobDeque.Front()->GetName() << " with dependencies: " << mJobDeque.Front()->GetUnfinishedJobs());
 	return nullptr;
-}
-
-Job* JobWorker::GetJob()
-{
-	Job* job = GetJobFromOwnQueue();
-	if (job != nullptr)
-	{
-		return job;
-	}
-
-	return StealJobFromOtherQueue();
 }
 
 inline void JobWorker::WaitForJob()
@@ -197,9 +200,9 @@ inline void JobWorker::WaitForJob()
 	HTL_LOGT(mId, "waiting for jobs");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
 	mAwakeCondition.wait(lock, [this]
-		{
-			lock_guard jobLock(mJobDeque.GetMutex());
-			return !mJobDeque.IsEmpty() | !mRunning;
-		});
+	{
+		lock_guard jobLock(mJobDeque.GetMutex());
+		return !mJobDeque.IsEmpty() | !mRunning;
+	});
 	HTL_LOGT(mId, "awake success!");
 }

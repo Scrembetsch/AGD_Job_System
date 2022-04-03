@@ -1,18 +1,14 @@
 #include "random.h"
 
+#include <stdlib.h> // srand, rand
+#include <time.h>   //time
+
 Random::Random()
-    : mRng()
-    , mMax(static_cast<float>(mRng.max()))
 {
+    srand((unsigned)time(0));
 }
 
-float Random::Rand01()
+uint32_t Random::Rand(uint32_t min, uint32_t max)
 {
-    return static_cast<float>(mRng()) / mMax;
-}
-
-float Random::Rand(float min, float max)
-{
-    float rand = Rand01();
-    return min + (max - min) * rand;
+    return rand() % max + min;
 }

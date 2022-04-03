@@ -9,8 +9,14 @@
     #define EXTRA_DEBUG
 #endif
 
+// custom defines for easier testing
+//#define USING_LOCKLESS // using lockless variant of worker queue
+//#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
+#define TEST_DEPENDENCIES // test if correct dependencies are met
+#define EXTRA_DEBUG // additional debug output
+
 #define HTL_LOGE(message) ThreadSafeLogger::Logger << "[ERROR]  " << message << "\n"
-#define HTL_LOGW(message) ThreadSafeLogger::Logger << "[WARNING]"
+#define HTL_LOGW(message) ThreadSafeLogger::Logger << "[WARNING]" << message << "\n"
 #if defined(EXTRA_DEBUG)
 #define HTL_LOGD(message) ThreadSafeLogger::Logger << "[DEBUG]  " << message << "\n"
 #else
@@ -29,10 +35,3 @@
 #endif
 
 #define HTL_LOG(message) ThreadSafeLogger::Logger << message << "\n"
-
-// custom defines for easier testing
-// TODO: move together with macros from other files to defines.h file
-//#define USING_LOCKLESS // using lockless variant of worker queue
-//#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
-#define TEST_DEPENDENCIES // test if correct dependencies are met
-//#define EXTRA_DEBUG // additional debug output

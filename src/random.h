@@ -1,16 +1,10 @@
 #pragma once
-
-#include <random>
+#include <stdint.h>
 
 class Random
 {
 public:
     Random();
 
-    float Rand01();
-    float Rand(float min, float max);
-
-private:
-    std::default_random_engine mRng;
-    float mMax;
+    uint32_t Rand(uint32_t min, uint32_t max);
 };

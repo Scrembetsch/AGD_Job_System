@@ -36,7 +36,6 @@ private:
 
 	void WaitForJob();
 	Job* GetJob();
-
 	Job* GetJobFromOwnQueue();
 	Job* StealJobFromOtherQueue();
 
