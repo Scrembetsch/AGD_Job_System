@@ -77,4 +77,35 @@ public:
         }
         return nullptr;
     }
+
+    // move front to back and retrieve the next front job
+    Job* HireBack()
+    {
+        lock_guard lock(mJobDequeMutex);
+        if (mJobDeque.size() < 2) return nullptr;
+
+        Job* job = mJobDeque.front();
+        mJobDeque.push_back(job);
+        mJobDeque.pop_front();
+
+        if (mJobDeque.front()->CanExecute())
+        {
+            // combining front and pop in our implementation
+            job = mJobDeque.front();
+            mJobDeque.pop_front();
+            return job;
+        }
+        return nullptr;
+    }
+
+    void Print()
+    {
+        lock_guard lock(mJobDequeMutex);
+        std::cout << " -> current deque (" << mJobDeque.size() << "): ";
+        for (size_t i = 0; i < mJobDeque.size(); ++i)
+        {
+            std::cout << mJobDeque[i]->GetName() << " - " << mJobDeque[i]->GetUnfinishedJobs() << ", ";
+        }
+        std::cout << std::endl;
+    }
 };

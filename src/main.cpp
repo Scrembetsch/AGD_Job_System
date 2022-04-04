@@ -59,6 +59,12 @@ MAKE_UPDATE_FUNC(Particles, 800) // depends on Collision
 MAKE_UPDATE_FUNC(GameElements, 2400) // depends on Physics
 MAKE_UPDATE_FUNC(Rendering, 2000) // depends on Animation, Particles, GameElements
 MAKE_UPDATE_FUNC(Sound, 1000) // no dependencies
+// sum of all threads in serial would be 9200 microsec
+// due to dependencies, can be completed after 5800 microsec at earliest in parallel n 2 threads
+//	input	physics		gameElements						Rendering
+//	200		-> 1000		-> 2400								-> 2000
+//	sound				collision	animation	particles
+//	1000				-> 1200		-> 600		-> 800
 
 void UpdateSerial()
 {

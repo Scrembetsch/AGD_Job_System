@@ -90,6 +90,7 @@ void JobWorker::Run()
 		if (Job* job = GetJob())
 		{
 			HTL_LOGT(mId, "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()));
+			
 			job->Execute();
 
 			// HINT: this can be a problem if setting value gets ordered before job is finished
@@ -141,15 +142,16 @@ Job* JobWorker::GetJobFromOwnQueue()
 	// execute our own jobs first
 	if (Job* job = mJobDeque.PopFront())
 	{
+		HTL_LOGT(mId, "job found in current front: " << job->GetName());
 		return job;
 	}
-	// if current front job can't be executed because of dependencies try back
-	else if (mJobDeque.Size() > 1)
+	// if current front job can't be executed because of dependencies
+	// move front to back so we can maybe execute the following job
+	// and another worker may steal the dependant one
+	else if (Job* job = mJobDeque.HireBack())
 	{
-		if (Job* job = mJobDeque.PopBack())
-		{
-			return job;
-		}
+		HTL_LOGT(mId, "job found in hire back: " << job->GetName());
+		return job;
 	}
 	return nullptr;
 }
