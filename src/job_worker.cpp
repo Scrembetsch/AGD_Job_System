@@ -56,13 +56,12 @@ void JobWorker::AddJob(Job* job)
 // so either need to synchronize or get rid of
 bool JobWorker::AllJobsFinished() const
 {
-	lock_guard lock(mJobDeque.GetMutex());
+	//lock_guard lock(mJobDeque.GetMutex());
 	return !(!mJobDeque.IsEmpty() || mJobRunning);
 }
 
 size_t JobWorker::GetNumJobs() const
 {
-	lock_guard lock(mJobDeque.GetMutex());
 	return mJobDeque.Size();
 }
 
@@ -75,8 +74,7 @@ void JobWorker::Shutdown()
 	// need to clear all remaining tasks
 	mJobRunning = false;
 
-	lock_guard lock(mJobDeque.GetMutex());
-	while (!mJobDeque.IsEmpty()) mJobDeque.PopFront();
+	while (mJobDeque.PopFront());
 
 	// wait for thread end by waking up and waiting for finish
 	mAwakeCondition.notify_one();
@@ -127,7 +125,6 @@ void JobWorker::Run()
 
 bool JobWorker::AnyJobAvailable() const
 {
-	lock_guard lock(mJobDeque.GetMutex());
 	return !mJobDeque.IsEmpty();
 }
 
@@ -142,14 +139,12 @@ Job* JobWorker::GetJob()
 		return job;
 	}
 
-	lock_guard lock(mJobDeque.GetMutex());
 	HTL_LOGT(mId, "no executable job found for queue size: " << mJobDeque.Size());
 	return nullptr;
 }
 
 Job* JobWorker::GetJobFromOwnQueue()
 {
-	lock_guard lock(mJobDeque.GetMutex());
 	// execute our own jobs first
 	if (Job* job = mJobDeque.PopFront())
 	{
@@ -181,7 +176,6 @@ Job* JobWorker::StealJobFromOtherQueue()
 
 	HTL_LOGT(mId, "Stealing job from worker queue #" << randomNumber);
 	JobWorker* workerToStealFrom = &mJobSystem->mWorkers[randomNumber];
-	lock_guard lock(workerToStealFrom->mJobDeque.GetMutex());
 	if (Job* job = workerToStealFrom->mJobDeque.PopBack())
 	{
 		// successfully stolen a job from another queues public end
@@ -193,12 +187,12 @@ Job* JobWorker::StealJobFromOtherQueue()
 
 inline void JobWorker::WaitForJob()
 {
-	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	HTL_LOGT(mId, "waiting for jobs");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
+	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
 	{
-		lock_guard jobLock(mJobDeque.GetMutex());
+		//lock_guard jobLock(mJobDeque.GetMutex());
 		return !mJobDeque.IsEmpty() | !mRunning;
 	});
 	HTL_LOGT(mId, "awake success!");
