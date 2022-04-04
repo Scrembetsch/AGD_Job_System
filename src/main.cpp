@@ -2,30 +2,11 @@
  * Handl Anja <gs20m005>, Tributsch Harald <gs20m008>, Michael Leithner <gs20m012>
 
 ------------------------------------------------------------------------------------
-TODO:
+open TODOs:
 
-0. get cpu and thread cores, cmd args (threads, isRunningParallel, ...)
-bis 04.04.
-
-1. easy scheduler for multiple worker with deques - Harald
-- Jobs
-- Job Manager (scheduler)
-    - starts threads
-    - notify of finished?
-- worker
-    - job deque with locks
-    - get next job
-
-2. dependencies - Michael
-- dependency on other Jobs
-    - can execute?
-- can have children
-
-3. job stealing - Anja
-    - steal from other worker
-
-bis 15.04.
-4. lockless - Michael
+- notify when jobs are finished?
+- support multiple dependencies instead of only parenting (Michael)
+- bis 15.04. lockless (Michael)
 
 ------------------------------------------------------------------------------------
 
@@ -117,9 +98,8 @@ void UpdateParallel(JobSystem& jobSystem)
 {
 	OPTICK_EVENT();
 
-	std::vector<Job*> jobs;
-
 	HTL_LOGD("---------- CREATING JOBS ----------");
+	std::vector<Job*> jobs;
 
 #ifdef TEST_DEPENDENCIES
 	// Test if adding rendering first still respect dependencies
@@ -160,8 +140,7 @@ uint32_t GetNumThreads(const ArgumentParser& argParser)
 {
 	const char* cShortArgName = "-t";
 	const char* cLongArgName = "--threads";
-	// hardware_concurrency return value is only a hint, in case it returns < 2
-	// we put a max() around it
+	// hardware_concurrency return value is only a hint, in case it returns < 2 so we put a max() around it
 	// We also want to keep one available thread "free" so that OS has no problems to schedule main thread
 	uint32_t maxThreads = max(thread::hardware_concurrency(), 2U) - 1;
 
@@ -172,24 +151,22 @@ uint32_t GetNumThreads(const ArgumentParser& argParser)
 		if (threads > maxThreads)
 		{
 			threads = maxThreads;
-			HTL_LOG("Specified number of threads is more than the available " << maxThreads << "!\nDefaulting to : " << threads << "\n");
+			HTL_LOG("Specified number of threads is more than the available " << maxThreads << "! Defaulting to : " << threads << "\n");
 		}
 		else if (threads == 0)
 		{
 			threads = 1;
-			HTL_LOG("Need at least one worker!\nDefaulting to: " << threads);
+			HTL_LOG("Need at least one worker! Defaulting to: " << threads);
 		}
 		else
 		{
 			HTL_LOG("Specified number of threads: " << threads);
-
 		}
 	}
 	else
 	{
-		HTL_LOG("No number of cores specified.\nDefaulting to: " << threads);
+		HTL_LOG("No number of cores specified. Defaulting to: " << threads);
 	}
-
 	return threads;
 }
 
@@ -212,12 +189,12 @@ int main(int argc, char** argv)
 
 	ArgumentParser argParser(argc, argv);
 	isRunningParallel = argParser.CheckIfExists("-p", "--parallel") ? true : isRunningParallel;
+	JobSystem* jobSystem = nullptr; // no need to allocate JobSystem when running Serial
 	uint32_t numThreads = 1;
 	if (isRunningParallel) {
 		numThreads = GetNumThreads(argParser);
+		jobSystem = new JobSystem(numThreads);
 	}
-	// TODO: no need to allocate JobSystem when running Serial
-	JobSystem jobSystem(numThreads);
 
 	atomic<bool> isRunning = true;
 	// We spawn a "main" thread so we can have the actual main thread blocking to receive a potential quit
@@ -230,7 +207,7 @@ int main(int argc, char** argv)
 			OPTICK_FRAME("Frame");
 			if ( isRunningParallel )
 			{
-				UpdateParallel(jobSystem);
+				UpdateParallel(*jobSystem);
 #ifdef TEST_ONLY_ONE_FRAME
 				return;
 #endif
@@ -251,7 +228,7 @@ int main(int argc, char** argv)
 	isRunning = false;
 
 	HTL_LOG("shutting down all worker threads...");
-	jobSystem.ShutDown();
+	jobSystem->ShutDown();
 
 	HTL_LOG("waiting for main_runner to join...");
 	main_runner.join();
