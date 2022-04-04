@@ -3,13 +3,9 @@
 
 ------------------------------------------------------------------------------------
 open TODOs:
-
 - notify when jobs are finished?
-- support multiple dependencies instead of only parenting (Michael)
 - bis 15.04. lockless (Michael)
-
 ------------------------------------------------------------------------------------
-
  */
 
 
@@ -100,33 +96,42 @@ void UpdateParallel(JobSystem& jobSystem)
 
 #ifdef TEST_DEPENDENCIES
 	// Test if adding rendering first still respect dependencies
-	Job *rendering = new Job(&UpdateRendering, "rendering");
-	Job *collision = new Job(&UpdateCollision, "collision", rendering);
-	Job *physics = new Job(&UpdatePhysics, "physics", collision);
-	// -> physics -> collision -> rendering
+	Job* sound = new Job(&UpdateSound, "sound");
+	Job* rendering = new Job(&UpdateRendering, "rendering");
+	Job* animation = new Job(&UpdateAnimation, "animation", { rendering });
+	Job* gameElements = new Job(&UpdateGameElements, "gameElements", { rendering });
+	Job* particles = new Job(&UpdateParticles, "particles", { rendering });
+	Job* collision = new Job(&UpdateCollision, "collision", { animation, particles });
+	Job* physics = new Job(&UpdatePhysics, "physics", { collision, gameElements });
+	Job* input = new Job(&UpdateInput, "input", { physics });
+	
 	jobs.push_back(rendering);
 	jobs.push_back(collision);
 	jobs.push_back(physics);
+	jobs.push_back(input);
+	jobs.push_back(animation);
+	jobs.push_back(particles);
+	jobs.push_back(gameElements);
+	jobs.push_back(sound);
 #else
 	jobs.push_back(new Job(&UpdateRendering, "rendering"));
 	jobs.push_back(new Job(&UpdateCollision, "collision"));
 	jobs.push_back(new Job(&UpdatePhysics, "physics"));
-#endif
 	jobs.push_back(new Job(&UpdateInput, "input"));
 	jobs.push_back(new Job(&UpdateAnimation, "animation"));
 	jobs.push_back(new Job(&UpdateParticles, "particles"));
 	jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
 	jobs.push_back(new Job(&UpdateSound, "sound"));
+#endif
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
 		jobSystem.AddJob(jobs[i]);
 	}
 
 	while (!jobSystem.AllJobsFinished());
+	HTL_LOGD("All jobs done on main thread #" << std::this_thread::get_id() << "...");
 
-	HTL_LOGD("All jobs done on main thread #" << this_thread::get_id() << "...");
 	HTL_LOGD("---------- DELETING JOBS ----------");
-
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
 		delete jobs[i];

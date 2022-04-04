@@ -2,30 +2,32 @@
 #include "defines.h"
 
 Job::Job(JobFunc job, std::string name)
-	: mJobFunction{ job }, mName{ name }, mParent{ nullptr }
+	: mJobFunction{ job }, mName{ name }
 {
 }
 
-// allow having one parent to represent dependencies
-Job::Job(JobFunc job, std::string name, Job* parent)
+// first iteration: allow having one parent to represent dependencies
+/*Job::Job(JobFunc job, std::string name, Job* parent)
 	: mJobFunction{ job }, mName{ name }, mParent{ parent }
 {
 	mParent->mUnfinishedJobs++;
 	HTL_LOGI("Increment dependency on: " << mParent->mName << " by: " << mName << ", unfinishedJobs: " << mParent->mUnfinishedJobs.load());
+}*/
+
+// allow to specify other jobs that define the dependencies
+Job::Job(JobFunc job, std::string name, std::vector<Job*> dependants)
+	: mJobFunction{ job }, mName{ name }, mDependants{ dependants }
+{
+	for (auto dependant : mDependants)
+	{
+		dependant->mUnfinishedJobs++;
+		HTL_LOGI("Increment dependency on: " << dependant->mName << " by: " << mName << ", unfinishedJobs: " << dependant->mUnfinishedJobs.load());
+	}
 }
 
 std::string Job::GetName() const
 {
 	return mName;
-}
-
-void Job::AddDependency()
-{
-	mUnfinishedJobs++;
-	//if (mParent != nullptr)
-	//{
-	//	mParent->AddDependency();
-	//}
 }
 
 // need to check if dependencies are met
@@ -54,13 +56,21 @@ void Job::Finish()
 	// still, between decrementing and reading the state could be changes by another worker
 	// so creating and using only a local variable
 	std::int_fast32_t unfinishedJobs = (mUnfinishedJobs.fetch_sub(1) - 1);
-	HTL_LOGI("job " << mName << " finished with open dependecies: " << unfinishedJobs <<
-		" having parent: " << (mParent ? mParent->mName : "none") <<
-		" on thread #" << std::this_thread::get_id() << "...");
+	HTL_LOGI("job " << mName << " finished with open dependecies: " << unfinishedJobs << " on thread #" << std::this_thread::get_id() << "...");
 
-	if (unfinishedJobs == 0 && mParent)
+	// first iteration: allow having one parent to represent dependencies
+	/*if (unfinishedJobs == 0 && mParent)
 	{
 		mParent->mUnfinishedJobs--;
 		HTL_LOGI("having parent " << (mParent ? mParent->mName : "none") << " with now open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs.load() : 0));
+	}*/
+
+	if (unfinishedJobs == 0 && mDependants.size())
+	{
+		for (auto dependant : mDependants)
+		{
+			dependant->mUnfinishedJobs--;
+			HTL_LOGI("having dependant " << (dependant ? dependant->mName : "none") << " with now open dependecies: " << (dependant ? (int)dependant->mUnfinishedJobs.load() : 0));
+		}
 	}
 }

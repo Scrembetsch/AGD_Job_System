@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <thread>
+#include <vector>
 
 // TODO: remove/comment all stuff for printing information
 #include <string>
@@ -12,9 +13,10 @@ private:
 	typedef void (*JobFunc)();
 	JobFunc mJobFunction;
 
-	// TODO: in the first iteration we are using just one parent to define dependencies
-	// later a list of dependencies will be implemented allowing more constraints
-	Job* mParent;
+	// first iteration: using just one parent to define dependencies
+	//Job* mParent;
+	// a list of dependants, allowing more constraints
+	std::vector<Job*> mDependants;
 
 	// atomic type to ensure inc and dec are visible to all threads
 	// 0 means jobs done
@@ -38,12 +40,17 @@ public:
 	Job(const Job&) = delete;
 	Job& operator =(const Job&) = delete;
 
-	// TODO: what about move semantics?
+	// also deleting move semantics otherwise would need to update dependeny pointers
+	Job(Job&&) = delete;
+	Job& operator=(Job&&) = delete;
 
 	Job(JobFunc job, std::string name);
 
-	// allow having one parent to represent dependencies
-	Job(JobFunc job, std::string name, Job* parent);
+	// first iteration: allow having one parent to represent dependencies
+	//Job(JobFunc job, std::string name, Job* parent);
+
+	// allow to specify other jobs that define the dependants
+	Job(JobFunc job, std::string name, std::vector<Job*> dependants);
 
 	std::string GetName() const;
 
@@ -61,6 +68,4 @@ public:
 	bool IsFinished() const;
 
 	void Finish();
-
-	void AddDependency();
 };
