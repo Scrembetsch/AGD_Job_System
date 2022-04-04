@@ -3,7 +3,6 @@
 #include "job.h"
 
 #include <mutex>
-//#include <queue>
 #include <deque>
 
 // could use template class but since we are only using our queue for jobs we don't need any additional overhead

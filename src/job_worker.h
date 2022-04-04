@@ -24,7 +24,6 @@ public:
 
 	void AddJob(Job* job);
 	bool AllJobsFinished() const;
-	size_t GetNumJobs() const;
 
 	void Shutdown();
 

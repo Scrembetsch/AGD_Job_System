@@ -52,17 +52,11 @@ void JobWorker::AddJob(Job* job)
 	mAwakeCondition.notify_one();
 }
 
-// HINT: this gets called from within the main thread!
-// so either need to synchronize or get rid of
 bool JobWorker::AllJobsFinished() const
 {
-	//lock_guard lock(mJobDeque.GetMutex());
+	// HINT: this gets called from within the main thread!
+	// so either need to synchronize mJobRunning or get rid of
 	return !(!mJobDeque.IsEmpty() || mJobRunning);
-}
-
-size_t JobWorker::GetNumJobs() const
-{
-	return mJobDeque.Size();
 }
 
 void JobWorker::Shutdown()
@@ -100,8 +94,7 @@ void JobWorker::Run()
 
 			// HINT: this can be a problem if setting value gets ordered before job is finished
 			// try using a write barrier to ensure val is really written after finish
-			//_ReadWriteBarrier(); // TODO: (for MS, std atomic fence)
-			// or remove?
+			//_ReadWriteBarrier(); // for MS, std atomic fence from c++ standard
 
 			if (job->IsFinished())
 			{
@@ -192,7 +185,6 @@ inline void JobWorker::WaitForJob()
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
 	{
-		//lock_guard jobLock(mJobDeque.GetMutex());
 		return !mJobDeque.IsEmpty() | !mRunning;
 	});
 	HTL_LOGT(mId, "awake success!");
