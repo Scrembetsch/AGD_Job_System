@@ -4,7 +4,6 @@
 #include <thread>
 
 // TODO: remove/comment all stuff for printing information
-// setting up a guard_lock to be able to sync print and using cout for printing thread_id
 #include <string>
 
 class Job
@@ -47,6 +46,7 @@ public:
 	Job(JobFunc job, std::string name, Job* parent);
 
 	std::string GetName() const;
+
 	std::int_fast32_t GetUnfinishedJobs() const
 	{
 		return mUnfinishedJobs.load();
@@ -60,7 +60,7 @@ public:
 
 	bool IsFinished() const;
 
-	void Finish(bool finishFromChild);
+	void Finish();
 
 	void AddDependency();
 };
