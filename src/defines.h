@@ -13,10 +13,10 @@
 //#define USING_LOCKLESS // using lockless variant of worker queue
 //#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
 #define TEST_DEPENDENCIES // test if correct dependencies are met
-#define EXTRA_DEBUG // additional debug output
+//#define EXTRA_DEBUG // additional debug output
 
-#define HTL_LOGE(message) ThreadSafeLogger::Logger << "[ERROR]  " << message << "\n"
-#define HTL_LOGW(message) ThreadSafeLogger::Logger << "[WARNING]" << message << "\n"
+#define HTL_LOGE(message) ThreadSafeLogger::Logger << "\x1B[31m[ERROR]  " << message << "\033[0m\n"
+#define HTL_LOGW(message) ThreadSafeLogger::Logger << "\x1B[33m[WARNING]" << message << "\033[0m\n"
 #if defined(EXTRA_DEBUG)
 #define HTL_LOGD(message) ThreadSafeLogger::Logger << "[DEBUG]  " << message << "\n"
 #else
