@@ -40,20 +40,17 @@ open TODOs:
 // configurable with cmd arg --parallel or -p
 bool isRunningParallel = false;
 
-// NO :(
-using namespace std;
-
 // Don't change this macros (unless for removing Optick if you want) - if you need something
 // for your local testing, create a new one for yourselves.
 #define MAKE_UPDATE_FUNC(NAME, DURATION) \
 	void Update##NAME() { \
 		OPTICK_EVENT(); \
-		auto start = chrono::high_resolution_clock::now(); \
+		auto start = std::chrono::high_resolution_clock::now(); \
 		decltype(start) end; \
 		do { \
-			end = chrono::high_resolution_clock::now(); \
-		} while (chrono::duration_cast<chrono::microseconds>(end - start).count() < (DURATION)); \
-		HTL_LOG("job \"" << __func__ << "\" on thread #" << this_thread::get_id() << " done!"); \
+			end = std::chrono::high_resolution_clock::now(); \
+		} while (std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < (DURATION)); \
+		HTL_LOG("job \"" << __func__ << "\" on thread #" << std::this_thread::get_id() << " done!"); \
 	} \
 
 // You can create other functions for testing purposes but those here need to run in your job system
@@ -142,7 +139,7 @@ uint32_t GetNumThreads(const ArgumentParser& argParser)
 	const char* cLongArgName = "--threads";
 	// hardware_concurrency return value is only a hint, in case it returns < 2 so we put a max() around it
 	// We also want to keep one available thread "free" so that OS has no problems to schedule main thread
-	uint32_t maxThreads = max(thread::hardware_concurrency(), 2U) - 1;
+	uint32_t maxThreads = std::max(std::thread::hardware_concurrency(), 2U) - 1;
 
 	uint32_t threads = maxThreads;
 	if (argParser.CheckIfExists(cShortArgName, cLongArgName))
@@ -196,9 +193,9 @@ int main(int argc, char** argv)
 		jobSystem = new JobSystem(numThreads);
 	}
 
-	atomic<bool> isRunning = true;
+	std::atomic<bool> isRunning = true;
 	// We spawn a "main" thread so we can have the actual main thread blocking to receive a potential quit
-	thread main_runner([ &isRunning, &jobSystem ]()
+	std::thread main_runner([ &isRunning, &jobSystem ]()
 	{
 		OPTICK_THREAD("Update");
 

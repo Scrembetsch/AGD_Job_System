@@ -1,8 +1,5 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdio.h>
-
 #include "thread_safe_logger.h"
 
 #ifdef _DEBUG

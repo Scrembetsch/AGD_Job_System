@@ -7,9 +7,6 @@
 	#include "locking_queue.h"
 #endif
 
-#include <cstdint>
-#include <mutex>
-#include <thread>
 class JobSystem;
 
 class JobWorker

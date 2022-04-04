@@ -4,8 +4,6 @@
 #include <sstream>
 #include <mutex>
 
-using namespace std;
-
 class ThreadSafeLogger
 {
 public:
@@ -17,13 +15,14 @@ public:
         message.flush();
     }
     static ThreadSafeLogger Logger;
+
 private:
     static std::mutex mMutex;
 };
 
 struct LogBuffer
 {
-    stringstream ss;
+    std::stringstream ss;
 
     LogBuffer() = default;
     LogBuffer(const LogBuffer&) = delete;
@@ -31,7 +30,7 @@ struct LogBuffer
     LogBuffer& operator=(LogBuffer&&) = delete;
 
     LogBuffer(LogBuffer&& buf) noexcept
-        : ss(move(buf.ss))
+        : ss(std::move(buf.ss))
     {
     }
     template <typename T>
