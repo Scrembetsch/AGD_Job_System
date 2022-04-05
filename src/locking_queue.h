@@ -17,28 +17,19 @@ private:
     mutable std::mutex mJobDequeMutex;
     std::deque<Job*> mJobDeque;
 
-    //uint32_t mSize = 0;
-    std::atomic_size_t mSize = 0;
-
-    // TODO: maybe use an atomic for size to check empty without locks?
+    std::atomic_size_t mSize{ 0 };
 
 public:
     bool IsEmpty() const
     {
         lock_guard lock(mJobDequeMutex);
-        return InternalIsEmpty();
-    }
-
-    size_t Size() const
-    {
-        lock_guard lock(mJobDequeMutex);
-        return mSize;
+        return mSize == 0;
     }
 
     Job* Front()
     {
         lock_guard lock(mJobDequeMutex);
-        if (InternalIsEmpty()) return nullptr;
+        if (mSize == 0) return nullptr;
 
         return mJobDeque.front();
     }
@@ -47,7 +38,7 @@ public:
     Job* PopFront ()
     {
         lock_guard lock(mJobDequeMutex);
-        if (InternalIsEmpty()) return nullptr;
+        if (mSize == 0) return nullptr;
 
         if (mJobDeque.front()->CanExecute())
         {
@@ -71,7 +62,7 @@ public:
     Job* PopBack()
     {
         lock_guard lock(mJobDequeMutex);
-        if (InternalIsEmpty()) return nullptr;
+        if (mSize == 0) return nullptr;
 
         if (mJobDeque.back()->CanExecute())
         {
@@ -88,7 +79,7 @@ public:
     Job* HireBack()
     {
         lock_guard lock(mJobDequeMutex);
-        if (mJobDeque.size() < 2) return nullptr;
+        if (mSize < 2) return nullptr;
 
         Job* job = mJobDeque.front();
         mJobDeque.push_back(job);
@@ -99,6 +90,7 @@ public:
             // combining front and pop in our implementation
             job = mJobDeque.front();
             mJobDeque.pop_front();
+            DecrementSize();
             return job;
         }
         return nullptr;
@@ -113,13 +105,9 @@ public:
             std::cout << mJobDeque[i]->GetName() << " - " << mJobDeque[i]->GetUnfinishedJobs() << ", ";
         }
         std::cout << std::endl;
-
-private:
-    bool InternalIsEmpty() const
-    {
-        return mSize == 0;
     }
 
+private:
     void IncrementSize()
     {
         // used for testing bug, where thread would go sleeping even if there would be a job
@@ -127,12 +115,15 @@ private:
         //    std::this_thread::sleep_for(std::chrono::nanoseconds(10));
         //    mSize++;
         //    }).detach();
-
         mSize++;
     }
 
     void DecrementSize()
     {
+        if (mSize == 0)
+        {
+            std::cout << " oh noe size would be decremented below 0 :-o";
+        }
         mSize--;
     }
 };
