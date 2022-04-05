@@ -17,25 +17,28 @@ private:
     mutable std::mutex mJobDequeMutex;
     std::deque<Job*> mJobDeque;
 
+    //uint32_t mSize = 0;
+    std::atomic_size_t mSize = 0;
+
     // TODO: maybe use an atomic for size to check empty without locks?
 
 public:
     bool IsEmpty() const
     {
         lock_guard lock(mJobDequeMutex);
-        return mJobDeque.empty();
+        return InternalIsEmpty();
     }
 
     size_t Size() const
     {
         lock_guard lock(mJobDequeMutex);
-        return mJobDeque.size();
+        return mSize;
     }
 
     Job* Front()
     {
         lock_guard lock(mJobDequeMutex);
-        if (mJobDeque.empty()) return nullptr;
+        if (InternalIsEmpty()) return nullptr;
 
         return mJobDeque.front();
     }
@@ -44,13 +47,14 @@ public:
     Job* PopFront ()
     {
         lock_guard lock(mJobDequeMutex);
-        if (mJobDeque.empty()) return nullptr;
+        if (InternalIsEmpty()) return nullptr;
 
         if (mJobDeque.front()->CanExecute())
         {
             // combining front and pop in our implementation
             Job* job = mJobDeque.front();
             mJobDeque.pop_front();
+            DecrementSize();
             return job;
         }
         return nullptr;
@@ -60,19 +64,21 @@ public:
     {
         lock_guard lock(mJobDequeMutex);
         mJobDeque.push_front(job);
+        IncrementSize();
     }
 
     // pull from public end (stealing)
     Job* PopBack()
     {
         lock_guard lock(mJobDequeMutex);
-        if (mJobDeque.empty()) return nullptr;
+        if (InternalIsEmpty()) return nullptr;
 
         if (mJobDeque.back()->CanExecute())
         {
             // combining back and pop in our implementation
             Job* job = mJobDeque.back();
             mJobDeque.pop_back();
+            DecrementSize();
             return job;
         }
         return nullptr;
@@ -107,5 +113,26 @@ public:
             std::cout << mJobDeque[i]->GetName() << " - " << mJobDeque[i]->GetUnfinishedJobs() << ", ";
         }
         std::cout << std::endl;
+
+private:
+    bool InternalIsEmpty() const
+    {
+        return mSize == 0;
+    }
+
+    void IncrementSize()
+    {
+        // used for testing bug, where thread would go sleeping even if there would be a job
+        //std::thread([this] {
+        //    std::this_thread::sleep_for(std::chrono::nanoseconds(10));
+        //    mSize++;
+        //    }).detach();
+
+        mSize++;
+    }
+
+    void DecrementSize()
+    {
+        mSize--;
     }
 };
