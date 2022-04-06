@@ -71,9 +71,12 @@ void JobWorker::Shutdown()
 	// need to clear all remaining tasks
 	mJobRunning = false;
 
+	// TODO: better implement a public Clear to prevent multiple lock aquiring
 	while (mJobDeque.PopFront());
 
 	// wait for thread end by waking up and waiting for finish
+	// TODO: maybe need an addition lock here?
+	//std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.notify_one();
 	mThread.join();
 	HTL_LOGT(mId, "worker thread successfully shutdown");
