@@ -22,7 +22,6 @@ private:
 public:
     bool IsEmpty() const
     {
-        lock_guard lock(mJobDequeMutex);
         return mSize == 0;
     }
 

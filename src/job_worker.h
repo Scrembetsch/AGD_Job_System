@@ -48,6 +48,6 @@ private:
 	LockingDeque mJobDeque;
 #endif
 
-	std::atomic_bool mJobRunning = false;
-	std::atomic_bool mRunning = true;
+	std::atomic_bool mJobRunning{ false };
+	std::atomic_bool mRunning{ true };
 };

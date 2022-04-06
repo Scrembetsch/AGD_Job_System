@@ -15,7 +15,8 @@
 
 using unique_lock = std::unique_lock<std::mutex>;
 
-std::atomic_uint32_t JobWorker::sWorkerCounter = 0;
+std::atomic_uint32_t JobWorker::sWorkerCounter{ 0 };
+
 
 JobWorker::JobWorker() : mId(sWorkerCounter++)
 {
@@ -48,9 +49,10 @@ void JobWorker::SetThreadAffinity()
 
 void JobWorker::AddJob(Job* job)
 {
+	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mJobDeque.PushFront(job);
 	mAwakeCondition.notify_one();
-	HTL_LOGI("Pushed job to Thread #" << mId);
+	HTL_LOGI("Pushed job #" << mJobDeque.Size() << " to Thread #" << mId);
 }
 
 bool JobWorker::AllJobsFinished() const
@@ -82,7 +84,7 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "starting worker");
 	while (mRunning)
 	{
-		if (!AnyJobAvailable())
+		if (mJobDeque.IsEmpty())
 		{
 			WaitForJob();
 		}
@@ -116,11 +118,6 @@ void JobWorker::Run()
 		}
 	}
 	HTL_LOGT(mId, "job end run");
-}
-
-bool JobWorker::AnyJobAvailable() const
-{
-	return !mJobDeque.IsEmpty();
 }
 
 Job* JobWorker::GetJob()
@@ -170,7 +167,7 @@ Job* JobWorker::StealJobFromOtherQueue()
 		randomNumber = (randomNumber + 1) % mJobSystem->mNumWorkers;
 	}
 
-	HTL_LOGT(mId, "Stealing job from worker queue #" << randomNumber);
+	HTL_LOGT(mId, "try stealing job from worker queue #" << randomNumber);
 	JobWorker* workerToStealFrom = &mJobSystem->mWorkers[randomNumber];
 	if (Job* job = workerToStealFrom->mJobDeque.PopBack())
 	{
@@ -190,9 +187,9 @@ inline void JobWorker::WaitForJob()
 	{
 		size_t size = mJobDeque.Size();
 		bool running = mRunning;
-		HTL_LOGT(mId, "Checking Wake up: Size=" << size << ", Running=" << mRunning << "; Waking up: " << (!mJobDeque.IsEmpty() | !mRunning));
+		HTL_LOGT(mId, "Checking Wake up: Size=" << size << ", Running=" << running << "; Waking up: " << ((size > 0) | !running));
 
-		return size > 0 | !running;
+		return (size > 0 | !running);
 	});
 	HTL_LOGT(mId, "awake success!");
 }
