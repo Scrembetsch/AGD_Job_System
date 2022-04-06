@@ -26,6 +26,11 @@ public:
         return mSize == 0;
     }
 
+    size_t Size()
+    {
+        return mSize;
+    }
+
     Job* Front()
     {
         lock_guard lock(mJobDequeMutex);

@@ -2,9 +2,9 @@
 
 #include "thread_safe_logger.h"
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
     #define EXTRA_DEBUG
-#endif
+//#endif
 
 // custom defines for easier testing
 //#define USING_LOCKLESS // using lockless variant of worker queue
@@ -17,18 +17,18 @@
 #if defined(EXTRA_DEBUG)
 #define HTL_LOGD(message) ThreadSafeLogger::Logger << "[DEBUG]  " << message << "\n"
 #else
-#define HTL_LOGD(message) ;
+#define HTL_LOGD(message)
 #endif
 #if defined(EXTRA_DEBUG)
 #define HTL_LOGI(message) ThreadSafeLogger::Logger << "[INFO]   " << message << "\n"
 #else
-#define HTL_LOGI(message) ;
+#define HTL_LOGI(message)
 #endif
 #define HTL_LOGTE(threadId, message) HTL_LOGE("\x1B[" << threadId + 31 << "m" << message << " on thread #" << threadId << "\033[0m")
 #if defined(EXTRA_DEBUG)
 #define HTL_LOGT(threadId, message) HTL_LOGI("\x1B[" << threadId + 31 << "m" << message << " on thread #" << threadId << "\033[0m")
 #else
-#define HTL_LOGT(threadId, message) ;
+#define HTL_LOGT(threadId, message)
 #endif
 
 #define HTL_LOG(message) ThreadSafeLogger::Logger << message << "\n"

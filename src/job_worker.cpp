@@ -50,6 +50,7 @@ void JobWorker::AddJob(Job* job)
 {
 	mJobDeque.PushFront(job);
 	mAwakeCondition.notify_one();
+	HTL_LOGI("Pushed job to Thread #" << mId);
 }
 
 bool JobWorker::AllJobsFinished() const
@@ -90,7 +91,7 @@ void JobWorker::Run()
 		if (Job* job = GetJob())
 		{
 			HTL_LOGT(mId, "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()));
-			
+
 			job->Execute();
 
 			// HINT: this can be a problem if setting value gets ordered before job is finished
@@ -108,8 +109,8 @@ void JobWorker::Run()
 		}
 		else
 		{
-			// go back to sleep if no executable jobs are available
-			HTL_LOGT(mId, "going to sleep on worker thread");
+			// yield if no executable jobs are available
+			HTL_LOGT(mId, "yielding on worker thread");
 			mJobRunning = false;
 			std::this_thread::yield();
 		}
@@ -187,7 +188,11 @@ inline void JobWorker::WaitForJob()
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
 	{
-		return !mJobDeque.IsEmpty() | !mRunning;
+		size_t size = mJobDeque.Size();
+		bool running = mRunning;
+		HTL_LOGT(mId, "Checking Wake up: Size=" << size << ", Running=" << mRunning << "; Waking up: " << (!mJobDeque.IsEmpty() | !mRunning));
+
+		return size > 0 | !running;
 	});
 	HTL_LOGT(mId, "awake success!");
 }
