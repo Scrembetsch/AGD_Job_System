@@ -25,17 +25,19 @@ public:
         return mSize == 0;
     }
 
-    size_t Size()
+    size_t Size() const
     {
         return mSize;
     }
 
-    Job* Front()
+    void Clear()
     {
         lock_guard lock(mJobDequeMutex);
-        if (mSize == 0) return nullptr;
-
-        return mJobDeque.front();
+        while (mSize > 0)
+        {
+            mJobDeque.pop_front();
+            mSize--;
+        }
     }
 
     // pull from private end
@@ -49,7 +51,7 @@ public:
             // combining front and pop in our implementation
             Job* job = mJobDeque.front();
             mJobDeque.pop_front();
-            DecrementSize();
+            mSize--;
             return job;
         }
         return nullptr;
@@ -59,7 +61,7 @@ public:
     {
         lock_guard lock(mJobDequeMutex);
         mJobDeque.push_front(job);
-        IncrementSize();
+        mSize++;
     }
 
     // pull from public end (stealing)
@@ -73,7 +75,7 @@ public:
             // combining back and pop in our implementation
             Job* job = mJobDeque.back();
             mJobDeque.pop_back();
-            DecrementSize();
+            mSize--;
             return job;
         }
         return nullptr;
@@ -94,13 +96,22 @@ public:
             // combining front and pop in our implementation
             job = mJobDeque.front();
             mJobDeque.pop_front();
-            DecrementSize();
+            mSize--;
             return job;
         }
         return nullptr;
     }
 
-    void Print()
+    // Debug functionality for printing additional information
+    Job* Front() const
+    {
+        lock_guard lock(mJobDequeMutex);
+        if (mSize == 0) return nullptr;
+
+        return mJobDeque.front();
+    }
+
+    void Print() const
     {
         lock_guard lock(mJobDequeMutex);
         std::cout << " -> current deque (" << mJobDeque.size() << "): ";
@@ -109,25 +120,5 @@ public:
             std::cout << mJobDeque[i]->GetName() << " - " << mJobDeque[i]->GetUnfinishedJobs() << ", ";
         }
         std::cout << std::endl;
-    }
-
-private:
-    void IncrementSize()
-    {
-        // used for testing bug, where thread would go sleeping even if there would be a job
-        //std::thread([this] {
-        //    std::this_thread::sleep_for(std::chrono::nanoseconds(10));
-        //    mSize++;
-        //    }).detach();
-        mSize++;
-    }
-
-    void DecrementSize()
-    {
-        if (mSize == 0)
-        {
-            std::cout << " oh noe size would be decremented below 0 :-o";
-        }
-        mSize--;
     }
 };

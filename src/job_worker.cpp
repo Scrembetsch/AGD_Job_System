@@ -70,14 +70,13 @@ void JobWorker::Shutdown()
 
 	// need to clear all remaining tasks
 	mJobRunning = false;
-
-	// TODO: better implement a public Clear to prevent multiple lock aquiring
-	while (mJobDeque.PopFront());
+	mJobDeque.Clear();
 
 	// wait for thread end by waking up and waiting for finish
-	// TODO: maybe need an addition lock here?
-	//std::unique_lock<std::mutex> lock(mAwakeMutex);
-	mAwakeCondition.notify_one();
+	{
+		std::unique_lock<std::mutex> lock(mAwakeMutex);
+		mAwakeCondition.notify_one();
+	}
 	mThread.join();
 	HTL_LOGT(mId, "worker thread successfully shutdown");
 }
@@ -192,7 +191,7 @@ inline void JobWorker::WaitForJob()
 		bool running = mRunning;
 		HTL_LOGT(mId, "Checking Wake up: Size=" << size << ", Running=" << running << "; Waking up: " << ((size > 0) | !running));
 
-		return (size > 0 | !running);
+		return ((size > 0) | !running);
 	});
 	HTL_LOGT(mId, "awake success!");
 }
