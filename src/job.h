@@ -67,4 +67,6 @@ public:
 	std::string GetName() const;
 
 	std::int_fast32_t GetUnfinishedJobs() const;
+
+	bool HasDependants() const;
 };

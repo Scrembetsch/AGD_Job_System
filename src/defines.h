@@ -3,9 +3,10 @@
 #include "thread_safe_logger.h"
 
 // custom defines for easier testing
-#define USING_LOCKLESS // using lockless variant of worker queue
+//#define USING_LOCKLESS // using lockless variant of worker queue
 //#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
-#define TEST_DEPENDENCIES // test if correct dependencies are met, using HireBack
+#define TEST_DEPENDENCIES // test if correct dependencies are met
+//#define WAIT_FOR_AVAILABLE_JOBS // if set, conditional var wakes on executable jobs instead of size > 0
 //#define EXTRA_DEBUG // additional debug output
 //#define EXTRA_LOCKS // still using locks in lockless queue for testing
 //#define SORT_JOBS // sort jobs to be allow workers to instantly start after pushing

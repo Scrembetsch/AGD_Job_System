@@ -12,29 +12,6 @@ class JobSystem;
 class JobWorker
 {
 private:
-	// Use static counter to signal Optick which worker this is
-	static std::atomic_uint32_t sWorkerCounter;
-
-	using lock_guard = std::lock_guard<std::mutex>;
-public:
-	JobWorker();
-
-	void AddJob(Job* job);
-	bool AllJobsFinished() const;
-
-	void Shutdown();
-
-	JobSystem* mJobSystem;
-
-private:
-	void Run();
-	void SetThreadAffinity();
-
-	void WaitForJob();
-	Job* GetJob();
-	Job* GetJobFromOwnQueue();
-	Job* StealJobFromOtherQueue();
-
 	uint32_t mId;
 	std::thread mThread;
 	std::mutex mAwakeMutex;
@@ -48,4 +25,28 @@ private:
 
 	std::atomic_bool mJobRunning{ false };
 	std::atomic_bool mRunning{ true };
+
+	void Run();
+	void SetThreadAffinity();
+
+	void WaitForJob();
+	Job* GetJob();
+	Job* GetJobFromOwnQueue();
+	Job* StealJobFromOtherQueue();
+
+public:
+	JobWorker();
+
+	void AddJob(Job* job);
+	bool AllJobsFinished() const;
+
+	void Shutdown();
+
+	JobSystem* mJobSystem;
+
+	void Print()
+	{
+		HTL_LOG("worker thread " << mId << " running: " << mRunning << ", job running: " << mJobRunning);
+		mJobDeque.Print();
+	}
 };

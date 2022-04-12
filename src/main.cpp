@@ -168,7 +168,7 @@ void UpdateParallel(JobSystem& jobSystem)
 	// and there are no spurious wakeups, where a thread awakes because the queue is not empty
 	// but than can complete no work because all jobs have open dependencies
 	std::sort(jobs.begin(), jobs.end(), [](Job* l, Job* r) {
-		// differenet implementation until LIFO / FIFO order is unified
+		// TODO: different implementation until LIFO / FIFO order is unified
 		#ifdef USING_LOCKLESS
 			return l->GetUnfinishedJobs() < r->GetUnfinishedJobs();
 		#else
@@ -280,6 +280,14 @@ int main(int argc, char** argv)
 
 	char c;
 	scanf_s("%c", &c, 1);
+	if (c == 'd')
+	{
+		HTL_LOG("debug info:");
+		for (size_t i = 0; i < jobSystem->mNumWorkers; ++i)
+		{
+			jobSystem->mWorkers[i].Print();
+		}
+	}
 	HTL_LOG("Quitting...");
 	isRunning = false;
 

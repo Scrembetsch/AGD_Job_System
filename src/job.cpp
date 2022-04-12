@@ -81,3 +81,8 @@ std::int_fast32_t Job::GetUnfinishedJobs() const
 {
 	return mUnfinishedJobs;
 }
+
+bool Job::HasDependants() const
+{
+	return !mDependants.empty();
+}

@@ -27,7 +27,7 @@ public:
 
     size_t AvailableJobs() const
     {
-        lock_guard lock(mJobDequeMutex);
+        //lock_guard lock(mJobDequeMutex);
         size_t jobs = 0;
         for (size_t i = 0; i < mSize; ++i)
         {
@@ -36,6 +36,7 @@ public:
                 jobs++;
             }
         }
+        HTL_LOGT(ThreadId, "having available jobs: " << jobs);
         return jobs;
     }
 
@@ -113,7 +114,7 @@ public:
 
     void Print() const
     {
-        lock_guard lock(mJobDequeMutex);
+        //lock_guard lock(mJobDequeMutex);
         HTL_LOGT(ThreadId, " -> current deque (" << mJobDeque.size() << "): ");
         for (size_t i = 0; i < mJobDeque.size(); ++i)
         {

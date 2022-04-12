@@ -13,10 +13,8 @@
 	#endif
 #endif
 
-using unique_lock = std::unique_lock<std::mutex>;
-
-std::atomic_uint32_t JobWorker::sWorkerCounter{ 0 };
-
+// Use static counter to signal Optick which worker this is
+static std::atomic_uint32_t sWorkerCounter{ 0 };
 
 JobWorker::JobWorker() : mId(sWorkerCounter++)
 {
@@ -95,30 +93,41 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "starting worker");
 	while (mRunning)
 	{
+#ifdef WAIT_FOR_AVAILABLE_JOBS
+		if (mJobDeque.AvailableJobs() == 0)
+#else
 		if (mJobDeque.Size() == 0)
-		//if (mJobDeque.AvailableJobs() == 0)
+#endif
 		{
 			WaitForJob();
 		}
-
-		HTL_LOGT(mId, "\n\nhaving available jobs: " << mJobDeque.AvailableJobs() << "\n\n");
 
 		// Fake job running, so worker doesn't get shut down between getting job and setting JobRunning
 		mJobRunning = true;
 		if (Job* job = GetJob())
 		{
-			HTL_LOGT(mId, "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()));
+			HTL_LOGT(mId, "starting work on job " << job->GetName());
 
 			job->Execute();
 			if (job->IsFinished())
 			{
 				mJobRunning = false;
-				HTL_LOGT(mId, "job is finished; remaining queue size: " << mJobDeque.Size());
+				HTL_LOGT(mId, "job " << job->GetName() << " is finished; remaining queue size: " << mJobDeque.Size());
 			}
 			else
 			{
-				HTL_LOGTE(mId, "job not finished after execution :-o");
+				HTL_LOGTE(mId, "job " << job->GetName() << " not finished after execution :-o");
 			}
+
+#ifdef WAIT_FOR_AVAILABLE_JOBS
+			// if dependency was resolved, wake another thread
+			if (job->HasDependants())
+			{
+				HTL_LOGT(mId, "\n\nNOTIFY ONE\n\n");
+				std::unique_lock<std::mutex> lock(mAwakeMutex);
+				mAwakeCondition.notify_one();
+			}
+#endif
 		}
 		else
 		{
@@ -142,15 +151,13 @@ Job* JobWorker::GetJob()
 		return job;
 	}
 
-	HTL_LOGT(mId, "no executable job found for queue size: " << mJobDeque.Size());
+	HTL_LOGT(mId, "no executable job found at all");
 	return nullptr;
 }
 
 Job* JobWorker::GetJobFromOwnQueue()
 {
 	// execute our own jobs first
-	HTL_LOGT(mId, "queue before pop");
-	mJobDeque.Print();
 	// private end allow to get unexecutable jobs to be able to reorder
 	if (Job* job = mJobDeque.PopFront(true))
 	{
@@ -169,12 +176,12 @@ Job* JobWorker::GetJobFromOwnQueue()
 			HTL_LOGT(mId, "first front job was not executable -> try getting next one from back...");
 			if (Job* otherJob = mJobDeque.PopFront())
 			{
-				HTL_LOGT(mId, "second job found in current front: " << otherJob->GetName());
+				HTL_LOGT(mId, "second job found in current back: " << otherJob->GetName());
 				return otherJob;
 			}
 		}
 	}
-	HTL_LOGT(mId, "second job was also not executable -> check other queues");
+	HTL_LOGT(mId, "no executable own job found -> check other queues");
 	return nullptr;
 }
 
@@ -193,7 +200,6 @@ Job* JobWorker::StealJobFromOtherQueue()
 
 	HTL_LOGT(mId, "try stealing job from worker queue #" << randomNumber);
 	JobWorker* workerToStealFrom = &mJobSystem->mWorkers[randomNumber];
-
 	if (Job* job = workerToStealFrom->mJobDeque.PopBack())
 	{
 		// successfully stolen a job from another queues public end
@@ -210,8 +216,11 @@ inline void JobWorker::WaitForJob()
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
 	{
+#ifdef WAIT_FOR_AVAILABLE_JOBS
+		size_t size = mJobDeque.AvailableJobs();
+#else
 		size_t size = mJobDeque.Size();
-		//size_t size = mJobDeque.AvailableJobs();
+#endif
 		bool running = mRunning;
 		HTL_LOGT(mId, "Checking Wake up: Size=" << size << ", Running=" << running << "; Waking up: " << ((size > 0) | !running));
 
