@@ -26,6 +26,9 @@ JobWorker::JobWorker() : mId(sWorkerCounter++)
 		std::string workerName("Worker " + std::to_string(mId));
 		OPTICK_THREAD(workerName.c_str());
 
+		// setting owning threadId for colored debug output
+		mJobDeque.ThreadId = mId;
+
 		Run();
 	});
 	SetThreadAffinity();
@@ -49,17 +52,29 @@ void JobWorker::SetThreadAffinity()
 
 void JobWorker::AddJob(Job* job)
 {
-	std::unique_lock<std::mutex> lock(mAwakeMutex);
+	// TODO: fix LIFO / FIFO for private / public end
+#ifdef USING_LOCKLESS
+	mJobDeque.PushBack(job);
+#else
 	mJobDeque.PushFront(job);
-	mAwakeCondition.notify_one();
-	HTL_LOGI("Pushed job #" << mJobDeque.Size() << " to Thread #" << mId);
+#endif
+	HTL_LOGT(mId, "Pushed " << job->GetName() << " as job #" << mJobDeque.Size() << " to Thread #" << mId);
+
+	{
+		std::unique_lock<std::mutex> lock(mAwakeMutex);
+		mAwakeCondition.notify_one();
+	}
 }
 
-bool JobWorker::AllJobsFinished() const
+bool JobWorker::AllJobsFinished() //const
 {
-	// HINT: this gets called from within the main thread!
-	// so either need to synchronize mJobRunning or get rid of
-	return !(!mJobDeque.IsEmpty() || mJobRunning);
+	bool allFinished = !(mJobDeque.Size() > 0 || mJobRunning);
+	// TODO: fix workaround for resetting boundaries in const AllJobsFinished
+	if (allFinished)
+	{
+		mJobDeque.Clear();
+	}
+	return allFinished;
 }
 
 void JobWorker::Shutdown()
@@ -86,7 +101,7 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "starting worker");
 	while (mRunning)
 	{
-		if (mJobDeque.IsEmpty())
+		if (mJobDeque.Size() == 0)
 		{
 			WaitForJob();
 		}
@@ -97,14 +112,10 @@ void JobWorker::Run()
 			HTL_LOGT(mId, "starting work on job " << ((job == nullptr) ? "INVALID" : job->GetName()));
 
 			job->Execute();
-
-			// HINT: this can be a problem if setting value gets ordered before job is finished
-			// try using a write barrier to ensure val is really written after finish
-			//_ReadWriteBarrier(); // for MS, std atomic fence from c++ standard
-
 			if (job->IsFinished())
 			{
 				mJobRunning = false;
+				HTL_LOGT(mId, "job is finished; remaining queue size: " << mJobDeque.Size());
 			}
 			else
 			{
@@ -140,19 +151,32 @@ Job* JobWorker::GetJob()
 Job* JobWorker::GetJobFromOwnQueue()
 {
 	// execute our own jobs first
-	if (Job* job = mJobDeque.PopFront())
+	HTL_LOGT(mId, "queue before pop");
+	mJobDeque.Print();
+	// private end allow to get unexecutable jobs to be able to reorder
+	if (Job* job = mJobDeque.PopFront(true))
 	{
-		HTL_LOGT(mId, "job found in current front: " << job->GetName());
-		return job;
+		if (job->CanExecute())
+		{
+			HTL_LOGT(mId, "job found in current front: " << job->GetName());
+			return job;
+		}
+
+		// if current front job can't be executed because of dependencies
+		// move front to back so we can maybe execute the following job
+		// and another worker may steal the dependant one after resolving dependencies
+		mJobDeque.PushBack(job);
+		if (mJobDeque.Size() > 1)
+		{
+			HTL_LOGT(mId, "first front job was not executable -> try getting next one from back...");
+			if (Job* otherJob = mJobDeque.PopFront())
+			{
+				HTL_LOGT(mId, "second job found in current front: " << otherJob->GetName());
+				return otherJob;
+			}
+		}
 	}
-	// if current front job can't be executed because of dependencies
-	// move front to back so we can maybe execute the following job
-	// and another worker may steal the dependant one
-	else if (Job* job = mJobDeque.HireBack())
-	{
-		HTL_LOGT(mId, "job found in hire back: " << job->GetName());
-		return job;
-	}
+	HTL_LOGT(mId, "second job was also not executable -> check other queues");
 	return nullptr;
 }
 
@@ -171,6 +195,7 @@ Job* JobWorker::StealJobFromOtherQueue()
 
 	HTL_LOGT(mId, "try stealing job from worker queue #" << randomNumber);
 	JobWorker* workerToStealFrom = &mJobSystem->mWorkers[randomNumber];
+
 	if (Job* job = workerToStealFrom->mJobDeque.PopBack())
 	{
 		// successfully stolen a job from another queues public end

@@ -116,16 +116,16 @@
     <ClInclude Include="src\defines.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
-    <ClInclude Include="src\locking_queue.h">
-      <Filter>jobsystem</Filter>
-    </ClInclude>
-    <ClInclude Include="src\lockless_queue.h">
-      <Filter>jobsystem</Filter>
-    </ClInclude>
     <ClInclude Include="src\thread_safe_logger.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
     <ClInclude Include="src\random.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lockless_deque.h">
+      <Filter>jobsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\locking_deque.h">
       <Filter>jobsystem</Filter>
     </ClInclude>
   </ItemGroup>

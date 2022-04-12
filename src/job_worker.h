@@ -2,9 +2,9 @@
 
 #include "defines.h"
 #ifdef USING_LOCKLESS
-	#include "lockless_queue.h"
+	#include "lockless_deque.h"
 #else
-	#include "locking_queue.h"
+	#include "locking_deque.h"
 #endif
 
 class JobSystem;
@@ -20,7 +20,8 @@ public:
 	JobWorker();
 
 	void AddJob(Job* job);
-	bool AllJobsFinished() const;
+	// TODO: workaround to reset queue boundaries
+	bool AllJobsFinished(); //const;
 
 	void Shutdown();
 
@@ -35,15 +36,13 @@ private:
 	Job* GetJobFromOwnQueue();
 	Job* StealJobFromOtherQueue();
 
-	bool AnyJobAvailable() const;
-
 	uint32_t mId;
 	std::thread mThread;
 	std::mutex mAwakeMutex;
 	std::condition_variable mAwakeCondition;
 
 #ifdef USING_LOCKLESS
-	LocklessQueue mJobQueue;
+	LocklessDeque mJobDeque;
 #else
 	LockingDeque mJobDeque;
 #endif
