@@ -15,6 +15,8 @@ Job::Job(JobFunc job, std::string name)
 }*/
 
 // allow to specify other jobs that define the dependencies
+// by only providing dependencies in ctor and not public method,
+// we prevent creating circular dependencies
 Job::Job(JobFunc job, std::string name, std::vector<Job*> dependants)
 	: mJobFunction{ job }, mName{ name }, mDependants{ dependants }
 {
@@ -23,11 +25,6 @@ Job::Job(JobFunc job, std::string name, std::vector<Job*> dependants)
 		dependant->mUnfinishedJobs++;
 		HTL_LOGI("Increment dependency on: " << dependant->mName << " by: " << mName << ", unfinishedJobs: " << dependant->mUnfinishedJobs.load());
 	}
-}
-
-std::string Job::GetName() const
-{
-	return mName;
 }
 
 // need to check if dependencies are met
@@ -73,4 +70,14 @@ void Job::Finish()
 			HTL_LOGI("having dependant " << (dependant ? dependant->mName : "none") << " with now open dependecies: " << (dependant ? (int)dependant->mUnfinishedJobs.load() : 0));
 		}
 	}
+}
+
+std::string Job::GetName() const
+{
+	return mName;
+}
+
+std::int_fast32_t Job::GetUnfinishedJobs() const
+{
+	return mUnfinishedJobs;
 }
