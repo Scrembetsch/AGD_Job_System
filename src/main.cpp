@@ -1,12 +1,49 @@
 /*
  * Handl Anja <gs20m005>, Tributsch Harald <gs20m008>, Michael Leithner <gs20m012>
+ * /
+------------------------------------------------------------------------------------
 
-------------------------------------------------------------------------------------
-open TODOs:
-- notify when jobs are finished?
-- bis 15.04. lockless (Michael)
-------------------------------------------------------------------------------------
- */
+// TODO:
+// ===================
+// - Fix LIFO / FIFO for private/public end (schemantic error)
+// - Allocate enough memory from outside and provide, allow resize/shrink (optional)
+// - Measure and put results in README.md (nive to have)
+// - Eliminate spurious wakeups on Size() > 0 but AvailableJobs() < 1 ! (error)
+// - Notify when jobs are finished (optional)
+// - Check if compare_exchange_strong is really needed and maybe replace with _weak variant
+
+
+// Problems and take aways:
+// ==========================
+// o Dependencies on jobs caused us a lot of headache xD
+//    "Normal" push an pop could be easily implemented, but because of depencencies it could happen
+//    that one queue encapsulates a depending, executable job between two dependant ones:
+//          front -> [job #1 depends on job #0] [job #0] [job #2 depends on job #1] <- back
+//    With the usual pop front on private end and pop back from public end available for other workers
+//    this situation leads to a deadlock!
+// -------------------------------------------------------------------------------------------------------
+//    In a first iteration, jobs where sorted by open dependencies and pushed to worker queues in a order
+//    so that they can be executed, but because of possible reorderings this solution was not stable.
+// -------------------------------------------------------------------------------------------------------
+//    A second attempt was, that if a worker pops a job and determines it is not executable,
+//    the job is than pushed back at the back of the queue.
+//    While this looked like a promising implementation, it could happen that one worker keeps reordering
+//    its open jobs, thus exceeding the allocated memory boundaries
+// -------------------------------------------------------------------------------------------------------
+//    To eliminate the growing boundary counters it was necessary to reset them after each successfull main frame
+//    but this was not enough because if other threads work longer on jobs which have dependencies,
+//    the reordering can still happen on the current active thread
+//    A (hopefully) final solution was to reset the boundaries everytime the queue pops its last item,
+//    which additionally slows down the lockless version
+
+// o Another Problem were spurious wakeups, where the workers gets notified by the conditional and want to start
+//    working because their queue size > 0. But as they try to get an exectuable job, it turns out all of them are
+//    not executable because of open dependencies.
+//    A Function to determine if any jobs are available was implemented, but using it causes the application
+//    to lock itself at any time ¯\_("/)_/¯
+//    --> maybe need to add additional conditional.notify on finished jobs?
+
+// ------------------------------------------------------------------------------------
 
 
  /* ===============================================
@@ -25,11 +62,6 @@ open TODOs:
 #include "argument_parser.h"
 #include "defines.h"
 #include "job_system.h"
-
-#include <thread>
-#include <vector>
-#include <atomic>
-#include <iostream> // using cout to print thread_id, otherwise would need to create a stringstream
 
 
 // Use this to switch between serial and parallel processing (for perf. comparison)
@@ -129,6 +161,21 @@ void UpdateParallel(JobSystem& jobSystem)
 	jobs.push_back(new Job(&UpdateGameElements, "gameElements"));
 	jobs.push_back(new Job(&UpdateSound, "sound"));
 #endif
+
+#ifdef SORT_JOBS
+	// sorting jobs by dependency so every thread can start directly
+	// and there are no spurious wakeups, where a thread awakes because the queue is not empty
+	// but than can complete no work because all jobs have open dependencies
+	std::sort(jobs.begin(), jobs.end(), [](Job* l, Job* r) {
+		// differenet implementation until LIFO / FIFO order is unified
+		#ifdef USING_LOCKLESS
+			return l->GetUnfinishedJobs() < r->GetUnfinishedJobs();
+		#else
+			return l->GetUnfinishedJobs() > r->GetUnfinishedJobs();
+		#endif
+	});
+#endif
+
 	for (uint32_t i = 0; i < jobs.size(); i++)
 	{
 		jobSystem.AddJob(jobs[i]);

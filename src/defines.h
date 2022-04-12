@@ -8,6 +8,7 @@
 #define TEST_DEPENDENCIES // test if correct dependencies are met, using HireBack
 //#define EXTRA_DEBUG // additional debug output
 //#define EXTRA_LOCKS // still using locks in lockless queue for testing
+//#define SORT_JOBS // sort jobs to be allow workers to instantly start after pushing
 
 //#ifdef _MSC_VER
 //  #define HTL_COMPILER_BARRIER _ReadWriteBarrier()
