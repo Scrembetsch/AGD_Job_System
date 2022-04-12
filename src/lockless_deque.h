@@ -1,36 +1,31 @@
 #pragma once
 
+// general information
+// ===================
+// - We don't delete pointers in our buffer, but just rely on boundaries
+// - Memory barriers are not used because atomic reads per default use load(memory_order_seq_cst)
+
+// - atomic compare exchange
+//      bool r = x.compare_exchange_*(&expected, T desired)
+//   is the same as
+//      bool r = atomic_compare_exchange_*(atomic<T>*x, *expected, T desired)
+//
+//   compares x with expected (value):
+//      if equal -> x becomes desired and return true
+//      else -> expected is updated with actual value
+
+
 #include "job.h"
 
 #ifdef EXTRA_LOCKS
     #include <mutex>
 #endif
 
-
-// TODO:
-// - fix LIFO / FIFO for private/public end
-// - uniform and check CAS handling
-// - allocate enough memory from outside and provide, allow resize/shrink
-// - fix workaround for resetting boundaries in const AllJobsFinished
-// - fix shutdown from main thread
-// - measure and put results in README.md
-
-// Status
-// Debug with 2 threads seems to run fine :D
-// Debug with 7 threads crashes after a while
-// Release with 2 threads crashes
-// Release with 7 threads crashes
-// --> there is defenitely a bug with resetting boundaries
-
-// general information
-// - we don't delete pointers in our buffer, but just rely on boundaries
-// - memory barriers are not used because atomic reads per default use load(memory_order_seq_cst)
-
 class LocklessDeque
 {
 private:
-    Job** m_entries;
-    std::atomic_int_fast32_t m_front{ 0 }, m_back{ 0 };
+    Job** mEntries;
+    std::atomic_int_fast32_t mFront{ 0 }, mBack{ 0 };
 
     // just using a fixed size large enough for our testing setup
     // TODO: would need to allocate and provide space from worker thread
@@ -46,29 +41,30 @@ public:
     {
         size_t bufferSize = AMOUNT * sizeof(Job*);
         void* buffer = (void*)malloc(bufferSize);
-        m_entries = (Job**)buffer;
+        mEntries = (Job**)buffer;
     }
 
     ~LocklessDeque()
     {
-        free(m_entries);
+        free(mEntries);
     }
 
     size_t Size() const
     {
-#ifdef EXTRA_LOCKS
-        lock_guard lock(mJobDequeMutex);
-#endif
-        return m_back - m_front;
+        return mBack - mFront;
     }
 
     size_t AvailableJobs() const
     {
-        //size_t size = m_back - m_front;
+#ifdef EXTRA_LOCKS
+        lock_guard lock(mJobDequeMutex);
+#endif
         size_t jobs = 0;
-        for (size_t i = m_front; i < m_back; ++i)
+        //size_t size = m_back - m_front;
+        //for (size_t i = mFront; i < size; ++i)
+        for (size_t i = mFront; i < mBack; ++i)
         {
-            if (m_entries[i]->CanExecute())
+            if (mEntries[i]->CanExecute())
             {
                 jobs++;
             }
@@ -78,9 +74,8 @@ public:
 
     void Clear()
     {
-        HTL_LOGT(ThreadId, "\n==================\n-> CLEAR and reset queue boundaries\n==================\n");
-        m_back = 0;
-        m_front = 0;
+        mBack = 0;
+        mFront = 0;
     }
 
     void PushBack(Job* job)
@@ -88,12 +83,12 @@ public:
 #ifdef EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        int_fast32_t jobIndex = m_back;
-        m_entries[jobIndex] = job;
-        m_back.fetch_add(1);
-        HTL_LOGT(ThreadId, "=> pushed_back job " << job->GetName() << " for size: " << (m_back - m_front) <<
-            ", front: " << m_front <<
-            ", back: " << m_back <<
+        int_fast32_t jobIndex = mBack;
+        mEntries[jobIndex] = job;
+        mBack.fetch_add(1);
+        HTL_LOGT(ThreadId, "=> pushed_back job " << job->GetName() << " for size: " << (mBack - mFront) <<
+            ", front: " << mFront <<
+            ", back: " << mBack <<
             ", index: " << (jobIndex));
     }
 
@@ -103,34 +98,30 @@ public:
 #ifdef EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        int_fast32_t front = m_front;
-        int_fast32_t back = m_back;
+        int_fast32_t front = mFront;
+        int_fast32_t back = mBack;
         if (front < back)
         {
-            Job* job = m_entries[front];
+            Job* job = mEntries[front];
             if (allowOpenDependencies || job->CanExecute())
             {
-                // bool r = x.compare_exchange_*(&expected, T desired)
-                // is the same as
-                // bool r = atomic_compare_exchange_strong(atomic<T>*x, *expected, T desired)
-                // compares x with expected (value)
-                //  if equal -> x becomes desired and return true
-                //  else -> expected is updated with actual value
-                // weak does not quarantee successfull exchange
-                if (!m_front.compare_exchange_strong(front, front + 1))
-                //if (!std::atomic_compare_exchange_strong(&m_front, &front, front + 1))
+                if (!mFront.compare_exchange_strong(front, front + 1))
                 {
                     // concurrent thread changed front -> should not happen
-                    HTL_LOGT(ThreadId, "\n\nCOULD NOT POP FRONT");
+                    HTL_LOGT(ThreadId, "COULD NOT POP FRONT");
                     return nullptr;
                 }
 
-                // TODO: check if this is still needed
-                if (front == m_back && front != 0)
+                HTL_LOGT(ThreadId, "<= pop_front job size: " << (mBack - mFront) <<
+                    ", front: " << mFront <<
+                    ", back: " << mBack);
+
+                // reset boundaries after popping last element
+                if (mFront == mBack && front != 0)
                 {
-                    HTL_LOGTW(ThreadId, "\n\nPOPPING FRONT last element, resetting boundaries: " << m_front << " - " << m_back);
-                    m_back = 0;
-                    m_front = 0;
+                    HTL_LOGTW(ThreadId, "POPPING FRONT last element, resetting boundaries: " << mFront << " - " << mBack);
+                    mBack = 0;
+                    mFront = 0;
                 }
                 return job;
             }
@@ -143,63 +134,42 @@ public:
 #ifdef EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        int_fast32_t back = m_back - 1;
-        int_fast32_t front = m_front;
-        if (front <= back)
+        int_fast32_t back = mBack;
+        int_fast32_t front = mFront;
+        if (front < back)
         {
-            Job* job = m_entries[back];
+            Job* job = mEntries[back - 1];
             // do not return a job if cannot execute
             if (!job->CanExecute())
             {
                 return nullptr;
             }
 
-            HTL_LOGT(ThreadId, "<= pop_back job size: " << (m_back - m_front) <<
-                ", front: " << front <<
-                ", back: " << back);
-
-            if (!std::atomic_compare_exchange_strong(&m_back, &back, back))
+            if (!mBack.compare_exchange_strong(back, mBack - 1))
             {
                 // concurrent thread changed back -> main_looper called PushBack
-                HTL_LOGT(ThreadId, "\n\nCOULD NOT POP BACK -> BACK changed");
+                HTL_LOGT(ThreadId, "COULD NOT POP BACK -> BACK changed");
                 return nullptr;
             }
 
-            if (front != back)
-            {
-                // still > 0 jobs left in the queue
-                HTL_LOGT(ThreadId, "  found job: " << (job->GetName()) << "; remaining size: " << (m_back - m_front));
-                return job;
-            }
-            else
-            {
-                // popping the last element in the queue
-                if (!std::atomic_compare_exchange_strong(&m_front, &front, front))
-                {
-                    // concurrent thread changed front -> main_looper called PushBack
-                    HTL_LOGT(ThreadId, "\n\nCOULD NOT POP BACK -> front changed");
-                    return nullptr;
-                }
+            HTL_LOGT(ThreadId, "<= pop_back job size: " << (mBack - mFront) <<
+                ", front: " << mFront <<
+                ", back: " << mBack);
 
-                // TODO: check if this is still needed
-                if (front == m_back && front != 0)
-                {
-                    HTL_LOGTW(ThreadId, "\n\nPOPPING BACK last element, resetting boundaries: " << m_front << " - " << m_back);
-                    m_back = 0;
-                    m_front = 0;
-                }
-                return job;
+            // reset boundaries after popping last element
+            if (mFront == mBack && front != 0)
+            {
+                HTL_LOGTW(ThreadId, "POPPING FRONT last element, resetting boundaries: " << mFront << " - " << mBack);
+                mBack = 0;
+                mFront = 0;
             }
+            return job;
         }
-        else
-        {
-            //m_back = front;
-            return nullptr; // queue already empty
-        }
+        return nullptr; // queue already empty
     }
 
     // Debug functionality for printing additional information
-    // should get stripped awy by compiler if not used
+    // should get stripped away by compiler if not used
     uint32_t ThreadId{ 0 };
 
     void Print() const
@@ -207,10 +177,10 @@ public:
 #ifdef EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        HTL_LOGT(ThreadId, " -> current deque (" << (m_back - m_front) << "): ");
-        for (size_t i = m_front; i < m_back; ++i)
+        HTL_LOGT(ThreadId, " -> current deque (" << (mBack - mFront) << "): ");
+        for (size_t i = mFront; i < mBack; ++i)
         {
-            HTL_LOGT(ThreadId, "\t" << m_entries[i]->GetName() << " - " << m_entries[i]->GetUnfinishedJobs());
+            HTL_LOGT(ThreadId, "\t" << mEntries[i]->GetName() << " - " << mEntries[i]->GetUnfinishedJobs());
         }
     }
 };
