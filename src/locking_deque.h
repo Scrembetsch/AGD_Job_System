@@ -25,6 +25,20 @@ public:
         return mSize;
     }
 
+    size_t AvailableJobs() const
+    {
+        lock_guard lock(mJobDequeMutex);
+        size_t jobs = 0;
+        for (size_t i = 0; i < mSize; ++i)
+        {
+            if (mJobDeque[i]->CanExecute())
+            {
+                jobs++;
+            }
+        }
+        return jobs;
+    }
+
     void Clear()
     {
         lock_guard lock(mJobDequeMutex);

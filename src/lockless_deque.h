@@ -62,6 +62,20 @@ public:
         return m_back - m_front;
     }
 
+    size_t AvailableJobs() const
+    {
+        //size_t size = m_back - m_front;
+        size_t jobs = 0;
+        for (size_t i = m_front; i < m_back; ++i)
+        {
+            if (m_entries[i]->CanExecute())
+            {
+                jobs++;
+            }
+        }
+        return jobs;
+    }
+
     void Clear()
     {
         HTL_LOGT(ThreadId, "\n==================\n-> CLEAR and reset queue boundaries\n==================\n");
@@ -104,7 +118,7 @@ public:
                 //  else -> expected is updated with actual value
                 // weak does not quarantee successfull exchange
                 if (!m_front.compare_exchange_strong(front, front + 1))
-                    //if (!std::atomic_compare_exchange_strong(&m_front, &front, front + 1))
+                //if (!std::atomic_compare_exchange_strong(&m_front, &front, front + 1))
                 {
                     // concurrent thread changed front -> should not happen
                     HTL_LOGT(ThreadId, "\n\nCOULD NOT POP FRONT");

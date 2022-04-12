@@ -102,9 +102,13 @@ void JobWorker::Run()
 	while (mRunning)
 	{
 		if (mJobDeque.Size() == 0)
+		//if (mJobDeque.AvailableJobs() == 0)
 		{
 			WaitForJob();
 		}
+
+		HTL_LOGT(mId, "\n\nhaving available jobs: " << mJobDeque.AvailableJobs() << "\n\n");
+
 		// Fake job running, so worker doesn't get shut down between getting job and setting JobRunning
 		mJobRunning = true;
 		if (Job* job = GetJob())
@@ -213,6 +217,7 @@ inline void JobWorker::WaitForJob()
 	mAwakeCondition.wait(lock, [this]
 	{
 		size_t size = mJobDeque.Size();
+		//size_t size = mJobDeque.AvailableJobs();
 		bool running = mRunning;
 		HTL_LOGT(mId, "Checking Wake up: Size=" << size << ", Running=" << running << "; Waking up: " << ((size > 0) | !running));
 
