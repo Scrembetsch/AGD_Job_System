@@ -11,6 +11,7 @@
 // - Eliminate spurious wakeups on Size() > 0 but AvailableJobs() < 1 ! (error)
 // - Notify when jobs are finished (optional)
 // - Check if compare_exchange_strong is really needed and maybe replace with _weak variant
+// - Enable lockless variant via parameter instead of macro (optional)
 
 
 // Problems and take aways:
