@@ -100,7 +100,7 @@ public:
     }
 
     // Debug functionality for printing additional information
-    // should get stripped awy by compiler if not used
+    // should get stripped away by compiler if not used
     uint32_t ThreadId{ 0 };
 
     Job* Front() const
