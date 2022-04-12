@@ -3,10 +3,10 @@
 #include "thread_safe_logger.h"
 
 // custom defines for easier testing
-//#define USING_LOCKLESS // using lockless variant of worker queue
+#define USING_LOCKLESS // using lockless variant of worker queue
 //#define TEST_ONLY_ONE_FRAME // main loop returns after one execution
 #define TEST_DEPENDENCIES // test if correct dependencies are met, using HireBack
-#define EXTRA_DEBUG // additional debug output
+//#define EXTRA_DEBUG // additional debug output
 //#define EXTRA_LOCKS // still using locks in lockless queue for testing
 
 //#ifdef _MSC_VER
@@ -14,7 +14,7 @@
 //#endif
 //#define HTL_MEMORY_BARRIER std::atomic_thread_fence(std::memory_order_seq_cst);
 
-// is compiling for debug mode enable additional output explicitly
+// if compiling for debug mode enable additional output explicitly
 #ifdef _DEBUG
     #define EXTRA_DEBUG
 #endif
