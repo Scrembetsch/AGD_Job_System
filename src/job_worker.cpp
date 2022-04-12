@@ -66,15 +66,9 @@ void JobWorker::AddJob(Job* job)
 	}
 }
 
-bool JobWorker::AllJobsFinished() //const
+bool JobWorker::AllJobsFinished() const
 {
-	bool allFinished = !(mJobDeque.Size() > 0 || mJobRunning);
-	// TODO: fix workaround for resetting boundaries in const AllJobsFinished
-	if (allFinished)
-	{
-		mJobDeque.Clear();
-	}
-	return allFinished;
+	return !(mJobDeque.Size() > 0 || mJobRunning);
 }
 
 void JobWorker::Shutdown()

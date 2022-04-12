@@ -20,8 +20,7 @@ public:
 	JobWorker();
 
 	void AddJob(Job* job);
-	// TODO: workaround to reset queue boundaries
-	bool AllJobsFinished(); //const;
+	bool AllJobsFinished() const;
 
 	void Shutdown();
 
