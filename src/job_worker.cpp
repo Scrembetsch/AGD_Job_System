@@ -96,7 +96,10 @@ void JobWorker::Run()
 #ifdef WAIT_FOR_AVAILABLE_JOBS
 		if (mJobDeque.HasExecutableJobs() == false)
 		{
-			mJobSystem->WakeThreads();
+			if (mJobSystem != nullptr)
+			{
+				mJobSystem->WakeThreads();
+			}
 			WaitForJob();
 		}
 #else
@@ -178,7 +181,7 @@ Job* JobWorker::GetJobFromOwnQueue()
 
 Job* JobWorker::StealJobFromOtherQueue()
 {
-	if (mJobSystem->mNumWorkers < 2) return nullptr;
+	if (mJobSystem == nullptr || mJobSystem->mNumWorkers < 2) return nullptr;
 
 	// try stealing from another random worker queue
 	unsigned int randomNumber = mJobSystem->mRanNumGen.Rand(0, mJobSystem->mNumWorkers);
