@@ -42,8 +42,6 @@ void Job::Execute()
 
 bool Job::IsFinished() const
 {
-	//return (mUnfinishedJobs.load() == 0);
-
 	// TODO: in very rare cases the job correctly updates depending jobs but mUnfinishedJobs is not 0 (yet?)
 	int_fast32_t finished = mUnfinishedJobs.load();
 	return (finished <= 0);
@@ -51,9 +49,6 @@ bool Job::IsFinished() const
 
 void Job::Finish()
 {
-	// attempt for fixing a bug where unfinished jobs could go below 0
-	//if (mUnfinishedJobs < 1) return;
-
 	// atomics override pre and postfix to execute in one instruction
 	// https://en.cppreference.com/w/cpp/atomic/atomic/operator_arith
 	// otherwise could ran in rmw problems

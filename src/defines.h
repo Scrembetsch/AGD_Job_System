@@ -39,6 +39,3 @@
 #else
     #define HTL_LOGT(threadId, message)
 #endif
-
-#define HTL_LOG_ALL(threadId, message)
-//HTL_LOG("\x1B[" << threadId + 31 << "m" << message << " on thread #" << threadId << "\033[0m")

@@ -95,7 +95,7 @@ bool isRunningParallel = false;
 		do { \
 			end = std::chrono::high_resolution_clock::now(); \
 		} while (std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < (DURATION)); \
-		HTL_LOGD("job \"" << __func__ << "\" on thread #" << std::this_thread::get_id() << " done!"); \
+		HTL_LOGD("Job \"" << __func__ << "\" on thread #" << std::this_thread::get_id() << " done!"); \
 	} \
 
 // You can create other functions for testing purposes but those here need to run in your job system
@@ -304,14 +304,14 @@ int main(int argc, char** argv)
 		}
 	});
 
-	HTL_LOG("starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main_runner thread #" << main_runner.get_id() << "...");
+	HTL_LOG("Starting execution in " << (isRunningParallel ? "parallel" : "serial") << " mode on main_runner thread #" << main_runner.get_id() << "...");
 	HTL_LOG("Type anything to quit...");
 
 	char c;
 	scanf_s("%c", &c, 1);
 	if (c == 'd')
 	{
-		HTL_LOG("debug info:");
+		HTL_LOG("Debug info:");
 		for (size_t i = 0; i < jobSystem->mNumWorkers; ++i)
 		{
 			jobSystem->mWorkers[i].Print();
@@ -320,10 +320,10 @@ int main(int argc, char** argv)
 	HTL_LOG("Quitting...");
 	isRunning = false;
 
-	HTL_LOG("shutting down all worker threads...");
+	HTL_LOG("Shutting down all worker threads...");
 	jobSystem->ShutDown();
 
-	HTL_LOG("waiting for main_runner to join...");
+	HTL_LOG("Waiting for main_runner to join...");
 	main_runner.join();
 
 	OPTICK_SHUTDOWN();

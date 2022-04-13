@@ -93,28 +93,9 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "Starting worker");
 	while (mRunning)
 	{
-		/*
-#ifdef WAIT_FOR_AVAILABLE_JOBS
-		if (mJobDeque.HasExecutableJobs() == false)
-#else
-		if (mJobDeque.Size() == 0)
-#endif
-		{
-#ifdef WAIT_FOR_AVAILABLE_JOBS
-			{
-				// let JobSystem wake next worker with executable jobs
-				HTL_LOGT(mId, "No more jobs here");
-				mJobSystem->WakeThreads();
-			}
-#endif
-			WaitForJob();
-		}*/
-
 #ifdef WAIT_FOR_AVAILABLE_JOBS
 		if (mJobDeque.HasExecutableJobs() == false)
 		{
-			//HTL_LOGT(mId, "No more jobs here");
-			HTL_LOG_ALL(mId, "No more jobs here");
 			mJobSystem->WakeThreads();
 			WaitForJob();
 		}
@@ -130,18 +111,8 @@ void JobWorker::Run()
 		if (Job* job = GetJob())
 		{
 			HTL_LOGT(mId, "Starting work on job " << job->GetName());
-			HTL_LOG_ALL(mId, "Starting work on job " << job->GetName());
 
 			job->Execute();
-			/*if (job->IsFinished())
-			{
-				mJobRunning = false;
-				HTL_LOGT(mId, "Job " << job->GetName() << " is finished; remaining queue size: " << mJobDeque.Size());
-			}
-			else
-			{
-				HTL_LOGTE(mId, "Job " << job->GetName() << " not finished after execution :-o open unfinishedJobs: " << job->GetUnfinishedJobs());
-			}*/
 			if (!job->IsFinished())
 			{
 				HTL_LOGTE(mId, "Job " << job->GetName() << " not finished after execution :-o open unfinishedJobs: " << job->GetUnfinishedJobs());
@@ -153,7 +124,6 @@ void JobWorker::Run()
 			// yield if no executable jobs are available
 			// and hope next worker has available jobs
 			HTL_LOGT(mId, "Yield");
-			HTL_LOG_ALL(mId, "Yield");
 			mJobRunning = false;
 			std::this_thread::yield();
 		}
@@ -233,7 +203,6 @@ Job* JobWorker::StealJobFromOtherQueue()
 inline void JobWorker::WaitForJob()
 {
 	HTL_LOGT(mId, "Waiting for jobs");
-	HTL_LOG_ALL(mId, "Waiting for jobs");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
@@ -249,7 +218,6 @@ inline void JobWorker::WaitForJob()
 		return ((size > 0) | !running);
 	});
 	HTL_LOGT(mId, "Awake success!");
-	HTL_LOG_ALL(mId, "Awake success!");
 }
 
 bool JobWorker::WakeUp()
@@ -257,7 +225,6 @@ bool JobWorker::WakeUp()
 	if (mJobDeque.HasExecutableJobs())
 	{
 		HTL_LOGT(mId, "Waking up from system");
-		HTL_LOG_ALL(mId, "Waking up from system");
 		std::unique_lock<std::mutex> lock(mAwakeMutex);
 		mAwakeCondition.notify_one();
 		return true;
