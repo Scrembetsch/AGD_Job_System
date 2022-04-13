@@ -41,8 +41,9 @@ public:
 	bool AllJobsFinished() const;
 
 	void Shutdown();
+	bool WakeUp();
 
-	JobSystem* mJobSystem;
+	JobSystem* mJobSystem{ nullptr };
 
 	void Print()
 	{

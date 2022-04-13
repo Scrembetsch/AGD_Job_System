@@ -13,6 +13,7 @@ public:
 	bool AllJobsFinished() const;
 
 	void ShutDown();
+	void WakeThreads();
 
 	Random mRanNumGen;
 

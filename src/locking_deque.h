@@ -22,22 +22,21 @@ private:
 public:
     size_t Size() const
     {
+        lock_guard lock(mJobDequeMutex);
         return mSize;
     }
 
-    size_t AvailableJobs() const
+    size_t HasExecutableJobs() const
     {
-        //lock_guard lock(mJobDequeMutex);
-        size_t jobs = 0;
+        lock_guard lock(mJobDequeMutex);
         for (size_t i = 0; i < mSize; ++i)
         {
             if (mJobDeque[i]->CanExecute())
             {
-                jobs++;
+                return true;
             }
         }
-        HTL_LOGT(ThreadId, "having available jobs: " << jobs);
-        return jobs;
+        return false;
     }
 
     void Clear()
@@ -115,10 +114,16 @@ public:
     void Print() const
     {
         //lock_guard lock(mJobDequeMutex);
-        HTL_LOGT(ThreadId, " -> current deque (" << mJobDeque.size() << "): ");
+        /*HTL_LOGT(ThreadId, " -> Current deque (" << mJobDeque.size() << "): ");
         for (size_t i = 0; i < mJobDeque.size(); ++i)
         {
             HTL_LOGT(ThreadId, "\t" << mJobDeque[i]->GetName() << " - " << mJobDeque[i]->GetUnfinishedJobs());
+        }*/
+
+        HTL_LOG(" -> Current deque (" << mJobDeque.size() << "): ");
+        for (size_t i = 0; i < mJobDeque.size(); ++i)
+        {
+            HTL_LOG("\t" << mJobDeque[i]->GetName() << " - " << mJobDeque[i]->GetUnfinishedJobs());
         }
     }
 };

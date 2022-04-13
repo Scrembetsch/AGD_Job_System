@@ -37,9 +37,24 @@ bool JobSystem::AllJobsFinished() const
 
 void JobSystem::ShutDown()
 {
-	HTL_LOGD("shutting down jobsystem...");
+	HTL_LOGD("Shutting down jobsystem...");
 	for (uint32_t i = 0; i < mNumWorkers; i++)
 	{
 		mWorkers[i].Shutdown();
 	}
 };
+
+// iterate all workers and wake them up if contain resolved dependencies
+void JobSystem::WakeThreads()
+{
+	HTL_LOGD("Trying to wake up threads...");
+	for (uint32_t i = 0; i < mNumWorkers; i++)
+	{
+		if (mWorkers[i].WakeUp())
+		{
+			// found the next thread with executable jobs
+			return;
+		}
+	}
+	HTL_LOGD("No thread was worthy to wake up... ");
+}

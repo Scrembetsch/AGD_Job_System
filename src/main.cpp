@@ -5,13 +5,17 @@
 
 // TODO:
 // ===================
-// - Fix LIFO / FIFO for private/public end (schemantic error)
-// - Allocate enough memory from outside and provide, allow resize/shrink (optional)
 // - Measure and put results in README.md (nive to have)
-// - Eliminate spurious wakeups on Size() > 0 but AvailableJobs() < 1 ! (error)
+// - Mention alignment against false sharing
+// - Remove mX for public variables
+
+// optional
+// ------------
+// - Fix LIFO / FIFO for private/public end (for better performance)
+// - Allocate enough memory from outside and provide, allow resize/shrink (optional)
 // - Notify when jobs are finished (optional)
-// - Check if compare_exchange_strong is really needed and maybe replace with _weak variant
 // - Enable lockless variant via parameter instead of macro (optional)
+// - Do we need threadlocal variables or are we fine with our implementation? (optional)
 
 
 // Problems and take aways:
@@ -38,12 +42,24 @@
 //    which additionally slows down the lockless version
 
 // o Another Problem were spurious wakeups, where the workers gets notified by the conditional and want to start
-//    working because their queue size > 0. But as they try to get an exectuable job, it turns out all of them are
-//    not executable because of open dependencies.
-//    A Function to determine if any jobs are available was implemented, but using it causes the application
-//    to lock itself at any time ¯\_("/)_/¯
-//    --> maybe need to add additional conditional.notify on finished jobs?
-
+//    working because their queue size > 0. But as they try to get an exectuable job, it turns out all of them are not executable
+//    because of open dependencies and can be observed building without our WAIT_FOR_AVAILABLE_JOBS macro in the logs:
+//       Yield on thread #4
+//       Yield on thread #4
+//       Yield on thread #4
+//       Yield on thread #4
+//       ...
+//    This means, a thread gets woken up because its conditional var is fulfilled, then tries to get a job.
+//    No job is currently executable because of dependencies, so the worker yields and gives back his slot.
+//    But then the system wakes the same thread up and again checks the conditional etc...
+//
+//    By using a build with WAIT_FOR_AVAILABLE_JOBS enabled, it can be observed that no thread is woken up without work to do :D
+//    Sadly, this in fact decreases the overall performance :/
+//       On my machine the release build with 7 threads needs about 8.5 ms for each frame,
+//       without the "optimization" of eliminating spurious wakeups, each frame almost always achieves the theoretically fastest execution of 5.6 ms
+//       With only 2 threads the standard implementation takes on average 7.3 ms,
+//       while our JobSystem waiting implementation finished after about 9.3 ms
+//
 // ------------------------------------------------------------------------------------
 
 
@@ -79,7 +95,7 @@ bool isRunningParallel = false;
 		do { \
 			end = std::chrono::high_resolution_clock::now(); \
 		} while (std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() < (DURATION)); \
-		HTL_LOG("job \"" << __func__ << "\" on thread #" << std::this_thread::get_id() << " done!"); \
+		HTL_LOGD("job \"" << __func__ << "\" on thread #" << std::this_thread::get_id() << " done!"); \
 	} \
 
 // You can create other functions for testing purposes but those here need to run in your job system
@@ -92,12 +108,25 @@ MAKE_UPDATE_FUNC(Particles, 800) // depends on Collision
 MAKE_UPDATE_FUNC(GameElements, 2400) // depends on Physics
 MAKE_UPDATE_FUNC(Rendering, 2000) // depends on Animation, Particles, GameElements
 MAKE_UPDATE_FUNC(Sound, 1000) // no dependencies
-// sum of all threads in serial would be 9200 microsec
-// due to dependencies, can be completed after 5800 microsec at earliest in parallel n 2 threads
+// ----------------------------------------------------------------------------------------------
+// sum of all threads in serial would be 9200 microsec:
+//	input	physics		collision	gameElements	animation	particles	sound		Rendering
+//	200		-> 1000		-> 1200		-> 2400			-> 600		-> 800		-> 1000		-> 2000
+// ----------------------------------------------------------------------------------------------
+// due to dependencies, can be completed after 5800 microsec at earliest in parallel on 2 threads:
 //	input	physics		gameElements						Rendering
 //	200		-> 1000		-> 2400								-> 2000
 //	sound				collision	animation	particles
 //	1000				-> 1200		-> 600		-> 800
+// ----------------------------------------------------------------------------------------------
+// using 3 threads the frame can be completed fastest after 5600 microsec:
+//	input	physics		gameElements						Rendering
+//	200		-> 1000		-> 2400								-> 2000
+//	sound				collision	animation
+//	1000				-> 1200		-> 600
+//									particles
+//									-> 800
+// ----------------------------------------------------------------------------------------------
 
 void UpdateSerial()
 {

@@ -51,25 +51,33 @@ public:
 
     size_t Size() const
     {
-        return mBack - mFront;
+        //return mBack - mFront;
+        int_fast32_t back = mBack;
+        int_fast32_t front = mFront;
+        //HTL_LOG("Current deque boundaries: " << front << " - " << back);
+        if (back <= front) return 0;
+
+        return back - front;
     }
 
-    size_t AvailableJobs() const
+    bool HasExecutableJobs() const
     {
 #ifdef EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        size_t jobs = 0;
-        //size_t size = m_back - m_front;
-        //for (size_t i = mFront; i < size; ++i)
-        for (size_t i = mFront; i < mBack; ++i)
+        int_fast32_t back = mBack;
+        int_fast32_t front = mFront;
+        if (front < back)
         {
-            if (mEntries[i]->CanExecute())
+            for (size_t i = front; i < back; ++i)
             {
-                jobs++;
+                if (mEntries[i]->CanExecute())
+                {
+                    return true;
+                }
             }
         }
-        return jobs;
+        return false;
     }
 
     void Clear()
@@ -83,13 +91,21 @@ public:
 #ifdef EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        int_fast32_t jobIndex = mBack;
+        /*
+        // naive way of adding and assume we are fine...
+        int_fast32_t back = mBack.fetch_add(1);
         mEntries[jobIndex] = job;
-        mBack.fetch_add(1);
-        HTL_LOGT(ThreadId, "=> pushed_back job " << job->GetName() << " for size: " << (mBack - mFront) <<
+        */
+
+        // more secure way with CAS because own thread could pop-push because of dependencies!
+        int_fast32_t back = mBack;
+        do mEntries[back] = job;
+        while (!mBack.compare_exchange_weak(back, back + 1));
+
+        /*HTL_LOGT(ThreadId, "=> Pushed_back job " << job->GetName() << " for size: " << (mBack - mFront) <<
             ", front: " << mFront <<
             ", back: " << mBack <<
-            ", index: " << (jobIndex));
+            ", index: " << (jobIndex));*/
     }
 
     // pull from private FIFO end, allows to return not executable job for reordering
@@ -100,26 +116,32 @@ public:
 #endif
         int_fast32_t front = mFront;
         int_fast32_t back = mBack;
-        if (front < back)
+        if (front < back && back > 0)
         {
             Job* job = mEntries[front];
             if (allowOpenDependencies || job->CanExecute())
             {
+                /*if (!mBack.compare_exchange_strong(back, back))
+                {
+                    HTL_LOGTW(ThreadId, "COULD NOT POP FRONT -> BACK changed");
+                    return nullptr;
+                }*/
+
                 if (!mFront.compare_exchange_strong(front, front + 1))
                 {
                     // concurrent thread changed front -> should not happen
-                    HTL_LOGT(ThreadId, "COULD NOT POP FRONT");
+                    HTL_LOGTW(ThreadId, "COULD NOT POP FRONT -> FRONT changed");
                     return nullptr;
                 }
 
-                HTL_LOGT(ThreadId, "<= pop_front job size: " << (mBack - mFront) <<
+                /*HTL_LOGTD(ThreadId, "<= Pop_front job size: " << (mBack - mFront) <<
                     ", front: " << mFront <<
-                    ", back: " << mBack);
+                    ", back: " << mBack);*/
 
                 // reset boundaries after popping last element
                 if (mFront == mBack && front != 0)
                 {
-                    HTL_LOGTW(ThreadId, "POPPING FRONT last element, resetting boundaries: " << mFront << " - " << mBack);
+                    //HTL_LOGTW(ThreadId, "POPPING FRONT last element, resetting boundaries: " << mFront << " - " << mBack);
                     mBack = 0;
                     mFront = 0;
                 }
@@ -129,6 +151,7 @@ public:
         return nullptr; // queue empty or job not valid
     }
 
+    // pull from public LIFO end (stealing) or when Front was not executable
     Job* PopBack()
     {
 #ifdef EXTRA_LOCKS
@@ -136,7 +159,7 @@ public:
 #endif
         int_fast32_t back = mBack;
         int_fast32_t front = mFront;
-        if (front < back)
+        if (front < back && back > 0)
         {
             Job* job = mEntries[back - 1];
             // do not return a job if cannot execute
@@ -145,24 +168,31 @@ public:
                 return nullptr;
             }
 
-            if (!mBack.compare_exchange_strong(back, mBack - 1))
+            /*if (!mFront.compare_exchange_strong(front, front))
+            {
+                HTL_LOGTW(ThreadId, "COULD NOT POP BACK -> FRONT changed");
+                return nullptr;
+            }*/
+
+            if (!mBack.compare_exchange_strong(back, back - 1))
             {
                 // concurrent thread changed back -> main_looper called PushBack
-                HTL_LOGT(ThreadId, "COULD NOT POP BACK -> BACK changed");
+                HTL_LOGTW(ThreadId, "COULD NOT POP BACK -> BACK changed");
                 return nullptr;
             }
 
-            HTL_LOGT(ThreadId, "<= pop_back job size: " << (mBack - mFront) <<
+            /*HTL_LOGTD(ThreadId, "<= Pop_back job size: " << (mBack - mFront) <<
                 ", front: " << mFront <<
-                ", back: " << mBack);
+                ", back: " << mBack);*/
 
+            /* only reset boundaries for pop in own thread
             // reset boundaries after popping last element
             if (mFront == mBack && front != 0)
             {
                 HTL_LOGTW(ThreadId, "POPPING FRONT last element, resetting boundaries: " << mFront << " - " << mBack);
                 mBack = 0;
                 mFront = 0;
-            }
+            }*/
             return job;
         }
         return nullptr; // queue already empty
@@ -177,10 +207,18 @@ public:
 #ifdef EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        HTL_LOGT(ThreadId, " -> current deque (" << (mBack - mFront) << "): ");
+        /*HTL_LOG(ThreadId, " -> Current deque (" << (mBack - mFront) << "): ");
         for (size_t i = mFront; i < mBack; ++i)
         {
-            HTL_LOGT(ThreadId, "\t" << mEntries[i]->GetName() << " - " << mEntries[i]->GetUnfinishedJobs());
+            HTL_LOG(ThreadId, "\t" << mEntries[i]->GetName() << " - " << mEntries[i]->GetUnfinishedJobs());
+        }*/
+
+        int_fast32_t front = mFront;
+        int_fast32_t back = mBack;
+        HTL_LOG(" -> Current deque with boundaries: " << front << " - " << back << " (" << (back - front) << "): ");
+        for (size_t i = front; i < back; ++i)
+        {
+            HTL_LOG("\t" << mEntries[i]->GetName() << " - " << mEntries[i]->GetUnfinishedJobs());
         }
     }
 };

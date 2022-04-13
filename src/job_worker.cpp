@@ -18,7 +18,7 @@ static std::atomic_uint32_t sWorkerCounter{ 0 };
 
 JobWorker::JobWorker() : mId(sWorkerCounter++)
 {
-	HTL_LOGT(mId, "creating worker");
+	HTL_LOGT(mId, "Creating worker");
 	mThread = std::thread([this]()
 	{
 		std::string workerName("Worker " + std::to_string(mId));
@@ -71,7 +71,7 @@ bool JobWorker::AllJobsFinished() const
 
 void JobWorker::Shutdown()
 {
-	HTL_LOGT(mId, "shutting down worker");
+	HTL_LOGT(mId, "Shutting down worker");
 	// breaking the loop (definitely not deathloop reference)
 	mRunning = false;
 
@@ -85,59 +85,79 @@ void JobWorker::Shutdown()
 		mAwakeCondition.notify_one();
 	}
 	mThread.join();
-	HTL_LOGT(mId, "worker thread successfully shutdown");
+	HTL_LOGT(mId, "Worker thread successfully shutdown");
 }
 
 void JobWorker::Run()
 {
-	HTL_LOGT(mId, "starting worker");
+	HTL_LOGT(mId, "Starting worker");
 	while (mRunning)
 	{
+		/*
 #ifdef WAIT_FOR_AVAILABLE_JOBS
-		if (mJobDeque.AvailableJobs() == 0)
+		if (mJobDeque.HasExecutableJobs() == false)
 #else
 		if (mJobDeque.Size() == 0)
 #endif
 		{
+#ifdef WAIT_FOR_AVAILABLE_JOBS
+			{
+				// let JobSystem wake next worker with executable jobs
+				HTL_LOGT(mId, "No more jobs here");
+				mJobSystem->WakeThreads();
+			}
+#endif
+			WaitForJob();
+		}*/
+
+#ifdef WAIT_FOR_AVAILABLE_JOBS
+		if (mJobDeque.HasExecutableJobs() == false)
+		{
+			//HTL_LOGT(mId, "No more jobs here");
+			HTL_LOG_ALL(mId, "No more jobs here");
+			mJobSystem->WakeThreads();
 			WaitForJob();
 		}
+#else
+		if (mJobDeque.Size() == 0)
+		{
+			WaitForJob();
+		}
+#endif
 
 		// Fake job running, so worker doesn't get shut down between getting job and setting JobRunning
 		mJobRunning = true;
 		if (Job* job = GetJob())
 		{
-			HTL_LOGT(mId, "starting work on job " << job->GetName());
+			HTL_LOGT(mId, "Starting work on job " << job->GetName());
+			HTL_LOG_ALL(mId, "Starting work on job " << job->GetName());
 
 			job->Execute();
-			if (job->IsFinished())
+			/*if (job->IsFinished())
 			{
 				mJobRunning = false;
-				HTL_LOGT(mId, "job " << job->GetName() << " is finished; remaining queue size: " << mJobDeque.Size());
+				HTL_LOGT(mId, "Job " << job->GetName() << " is finished; remaining queue size: " << mJobDeque.Size());
 			}
 			else
 			{
-				HTL_LOGTE(mId, "job " << job->GetName() << " not finished after execution :-o");
-			}
-
-#ifdef WAIT_FOR_AVAILABLE_JOBS
-			// if dependency was resolved, wake another thread
-			if (job->HasDependants())
+				HTL_LOGTE(mId, "Job " << job->GetName() << " not finished after execution :-o open unfinishedJobs: " << job->GetUnfinishedJobs());
+			}*/
+			if (!job->IsFinished())
 			{
-				HTL_LOGT(mId, "\n\nNOTIFY ONE\n\n");
-				std::unique_lock<std::mutex> lock(mAwakeMutex);
-				mAwakeCondition.notify_one();
+				HTL_LOGTE(mId, "Job " << job->GetName() << " not finished after execution :-o open unfinishedJobs: " << job->GetUnfinishedJobs());
 			}
-#endif
+			mJobRunning = false;
 		}
 		else
 		{
 			// yield if no executable jobs are available
-			HTL_LOGT(mId, "yielding on worker thread");
+			// and hope next worker has available jobs
+			HTL_LOGT(mId, "Yield");
+			HTL_LOG_ALL(mId, "Yield");
 			mJobRunning = false;
 			std::this_thread::yield();
 		}
 	}
-	HTL_LOGT(mId, "job end run");
 }
 
 Job* JobWorker::GetJob()
@@ -151,19 +171,20 @@ Job* JobWorker::GetJob()
 		return job;
 	}
 
-	HTL_LOGT(mId, "no executable job found at all");
+	HTL_LOGT(mId, "No executable job found at all");
 	return nullptr;
 }
 
 Job* JobWorker::GetJobFromOwnQueue()
 {
 	// execute our own jobs first
-	// private end allow to get unexecutable jobs to be able to reorder
-	if (Job* job = mJobDeque.PopFront(true))
+	// private end allow to get unexecutable jobs if has more than one job to be able to reorder
+	bool allowOpenDependencies = mJobDeque.Size() > 1;
+	if (Job* job = mJobDeque.PopFront(allowOpenDependencies))
 	{
 		if (job->CanExecute())
 		{
-			HTL_LOGT(mId, "job found in current front: " << job->GetName());
+			HTL_LOGT(mId, "Job found in current front: " << job->GetName());
 			return job;
 		}
 
@@ -173,15 +194,15 @@ Job* JobWorker::GetJobFromOwnQueue()
 		mJobDeque.PushBack(job);
 		if (mJobDeque.Size() > 1)
 		{
-			HTL_LOGT(mId, "first front job was not executable -> try getting next one from back...");
+			HTL_LOGT(mId, "First front job was not executable -> try getting next one from back...");
 			if (Job* otherJob = mJobDeque.PopFront())
 			{
-				HTL_LOGT(mId, "second job found in current back: " << otherJob->GetName());
+				HTL_LOGT(mId, "Second job found in current back: " << otherJob->GetName());
 				return otherJob;
 			}
 		}
 	}
-	HTL_LOGT(mId, "no executable own job found -> check other queues");
+	HTL_LOGT(mId, "No executable own job found -> check other queues");
 	return nullptr;
 }
 
@@ -198,7 +219,7 @@ Job* JobWorker::StealJobFromOtherQueue()
 		randomNumber = (randomNumber + 1) % mJobSystem->mNumWorkers;
 	}
 
-	HTL_LOGT(mId, "try stealing job from worker queue #" << randomNumber);
+	HTL_LOGT(mId, "Try stealing job from worker queue #" << randomNumber);
 	JobWorker* workerToStealFrom = &mJobSystem->mWorkers[randomNumber];
 	if (Job* job = workerToStealFrom->mJobDeque.PopBack())
 	{
@@ -211,13 +232,14 @@ Job* JobWorker::StealJobFromOtherQueue()
 
 inline void JobWorker::WaitForJob()
 {
-	HTL_LOGT(mId, "waiting for jobs");
+	HTL_LOGT(mId, "Waiting for jobs");
+	HTL_LOG_ALL(mId, "Waiting for jobs");
 	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
 	{
 #ifdef WAIT_FOR_AVAILABLE_JOBS
-		size_t size = mJobDeque.AvailableJobs();
+		size_t size = mJobDeque.HasExecutableJobs() ? 1 : 0;
 #else
 		size_t size = mJobDeque.Size();
 #endif
@@ -226,5 +248,19 @@ inline void JobWorker::WaitForJob()
 
 		return ((size > 0) | !running);
 	});
-	HTL_LOGT(mId, "awake success!");
+	HTL_LOGT(mId, "Awake success!");
+	HTL_LOG_ALL(mId, "Awake success!");
+}
+
+bool JobWorker::WakeUp()
+{
+	if (mJobDeque.HasExecutableJobs())
+	{
+		HTL_LOGT(mId, "Waking up from system");
+		HTL_LOG_ALL(mId, "Waking up from system");
+		std::unique_lock<std::mutex> lock(mAwakeMutex);
+		mAwakeCondition.notify_one();
+		return true;
+	}
+	return false;
 }

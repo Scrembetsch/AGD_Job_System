@@ -42,18 +42,25 @@ void Job::Execute()
 
 bool Job::IsFinished() const
 {
-	return (mUnfinishedJobs.load() == 0);
+	//return (mUnfinishedJobs.load() == 0);
+
+	// TODO: in very rare cases the job correctly updates depending jobs but mUnfinishedJobs is not 0 (yet?)
+	int_fast32_t finished = mUnfinishedJobs.load();
+	return (finished <= 0);
 }
 
 void Job::Finish()
 {
+	// attempt for fixing a bug where unfinished jobs could go below 0
+	//if (mUnfinishedJobs < 1) return;
+
 	// atomics override pre and postfix to execute in one instruction
 	// https://en.cppreference.com/w/cpp/atomic/atomic/operator_arith
 	// otherwise could ran in rmw problems
 	// still, between decrementing and reading the state could be changes by another worker
 	// so creating and using only a local variable
-	std::int_fast32_t unfinishedJobs = (mUnfinishedJobs.fetch_sub(1) - 1);
-	HTL_LOGI("job " << mName << " finished with open dependecies: " << unfinishedJobs << " on thread #" << std::this_thread::get_id() << "...");
+	int_fast32_t unfinishedJobs = (mUnfinishedJobs.fetch_sub(1) - 1);
+	HTL_LOGI("Job " << mName << " finished with open dependecies: " << unfinishedJobs << " on thread #" << std::this_thread::get_id() << "...");
 
 	// first iteration: allow having one parent to represent dependencies
 	/*if (unfinishedJobs == 0 && mParent)
@@ -67,7 +74,7 @@ void Job::Finish()
 		for (auto dependant : mDependants)
 		{
 			dependant->mUnfinishedJobs--;
-			HTL_LOGI("having dependant " << (dependant ? dependant->mName : "none") << " with now open dependecies: " << (dependant ? (int)dependant->mUnfinishedJobs.load() : 0));
+			HTL_LOGI("Having dependant " << dependant->mName << " with now open dependecies: " << (int)dependant->mUnfinishedJobs.load());
 		}
 	}
 }
@@ -77,7 +84,7 @@ std::string Job::GetName() const
 	return mName;
 }
 
-std::int_fast32_t Job::GetUnfinishedJobs() const
+int_fast32_t Job::GetUnfinishedJobs() const
 {
 	return mUnfinishedJobs;
 }

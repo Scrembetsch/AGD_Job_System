@@ -10,7 +10,7 @@ public:
     template <typename T>
     static void log(T& message)
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        //std::lock_guard<std::mutex> lock(mMutex);
         std::cout << message.str();
         message.flush();
     }
