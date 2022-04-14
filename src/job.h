@@ -3,20 +3,21 @@
 #include <atomic>
 #include <thread>
 #include <vector>
-
-// TODO: remove/comment all stuff for printing information
 #include <string>
 
 class Job
 {
 private:
-	typedef void (*JobFunc)();
-	JobFunc mJobFunction;
+	// additional debug information by providing a readable task name
+	std::string mName;
 
 	// first iteration: using just one parent to define dependencies
 	//Job* mParent;
 	// a list of dependants, allowing more constraints
 	std::vector<Job*> mDependants;
+
+	typedef void (*JobFunc)();
+	JobFunc mJobFunction;
 
 	// atomic type to ensure inc and dec are visible to all threads
 	// 0 means jobs done
@@ -28,8 +29,11 @@ private:
 	//void* mData;
 	//void* mContext;
 
-	// additional debug information by providing a readable task name
-	std::string mName;
+	// TODO: could add padding array to align to cache line size to prevent false sharing
+	// char padding[CacheLineBytes(64) - JobFunc(8) - vector(24) - int32(4) - name(32)];
+	// but because of debug features we are already at 72 bytes and couldn't measure any
+	// performance losses that would justify doing so
+	//char padding[2*64 - 72];
 
 public:
 	// we don't support jobs with not worker function
