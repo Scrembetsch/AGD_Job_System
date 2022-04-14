@@ -10,7 +10,6 @@
 class LockingDeque
 {
 private:
-    // TODO: not sure if public getter need to set a mutext on queue?
     using lock_guard = std::lock_guard<std::mutex>;
     // mutex needs do be mutable to be used in const functions
     mutable std::mutex mJobDequeMutex;
@@ -113,13 +112,6 @@ public:
 
     void Print() const
     {
-        //lock_guard lock(mJobDequeMutex);
-        /*HTL_LOGT(ThreadId, " -> Current deque (" << mJobDeque.size() << "): ");
-        for (size_t i = 0; i < mJobDeque.size(); ++i)
-        {
-            HTL_LOGT(ThreadId, "\t" << mJobDeque[i]->GetName() << " - " << mJobDeque[i]->GetUnfinishedJobs());
-        }*/
-
         HTL_LOG(" -> Current deque (" << mJobDeque.size() << "): ");
         for (size_t i = 0; i < mJobDeque.size(); ++i)
         {

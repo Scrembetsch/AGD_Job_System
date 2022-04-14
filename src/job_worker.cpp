@@ -51,7 +51,7 @@ void JobWorker::SetThreadAffinity()
 void JobWorker::AddJob(Job* job)
 {
 	// TODO: fix LIFO / FIFO for private / public end
-#ifdef USING_LOCKLESS
+#ifdef HTL_USING_LOCKLESS
 	mJobDeque.PushBack(job);
 #else
 	mJobDeque.PushFront(job);
@@ -93,7 +93,7 @@ void JobWorker::Run()
 	HTL_LOGT(mId, "Starting worker");
 	while (mRunning)
 	{
-#ifdef WAIT_FOR_AVAILABLE_JOBS
+#ifdef HTL_WAIT_FOR_AVAILABLE_JOBS
 		if (mJobDeque.HasExecutableJobs() == false)
 		{
 			if (mJobSystem != nullptr)
@@ -183,6 +183,8 @@ Job* JobWorker::StealJobFromOtherQueue()
 {
 	if (mJobSystem == nullptr || mJobSystem->mNumWorkers < 2) return nullptr;
 
+	// TODO: should be a public JobSystem method "pls give me a random worker thread excluding my id"
+	//       so that numWorkers doesn't need to be accessed from outside
 	// try stealing from another random worker queue
 	unsigned int randomNumber = mJobSystem->mRanNumGen.Rand(0, mJobSystem->mNumWorkers);
 	// no stealing from ourselves, try the next one instead
@@ -210,7 +212,7 @@ inline void JobWorker::WaitForJob()
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
 	{
-#ifdef WAIT_FOR_AVAILABLE_JOBS
+#ifdef HTL_WAIT_FOR_AVAILABLE_JOBS
 		size_t size = mJobDeque.HasExecutableJobs() ? 1 : 0;
 #else
 		size_t size = mJobDeque.Size();
@@ -227,7 +229,7 @@ bool JobWorker::WakeUp()
 {
 	if (mJobDeque.HasExecutableJobs())
 	{
-		HTL_LOGT(mId, "Waking up from system");
+		HTL_LOGT(mId, "Wake up call from job system");
 		std::unique_lock<std::mutex> lock(mAwakeMutex);
 		mAwakeCondition.notify_one();
 		return true;

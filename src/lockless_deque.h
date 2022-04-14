@@ -3,7 +3,14 @@
 // general information
 // ===================
 // - We don't delete pointers in our buffer, but just rely on boundaries
-// - Memory barriers are not used because atomic reads per default use load(memory_order_seq_cst)
+// - Memory barriers are not used because atomic reads and writes per default use load(memory_order_seq_cst)
+// - per design pop on private end should be LIFO and on public end FIFO
+//      but I didn't pay attention at design time and changing it now would be a high risk breaking everything
+//      -> would need to start boundaries at AMOUNT-1 instead of zero and add jobs per PushFront
+//          but this way re-ordering (moving job from one end to the other because its dependencies are not fulfilled yet)
+//          would not be possible unless starting boundaries in the middle of mEntries
+//      -> alternatively and more secure would be to use a ringbuffer with generations to allow jumping over boundaries
+//          or just creating nodes on heap (which we just assume would perform worse and we already know all our jobs)
 
 // - atomic compare exchange
 //      bool r = x.compare_exchange_*(&expected, T desired)
@@ -12,12 +19,12 @@
 //
 //   compares x with expected (value):
 //      if equal -> x becomes desired and return true
-//      else -> expected is updated with actual value
+//      else -> expected is updated with actual value and return false
 
 
 #include "job.h"
 
-#ifdef EXTRA_LOCKS
+#ifdef HTL_EXTRA_LOCKS
     #include <mutex>
 #endif
 
@@ -31,7 +38,7 @@ private:
     // TODO: would need to allocate and provide space from worker thread
     static const int AMOUNT = 16;
 
-#ifdef EXTRA_LOCKS
+#ifdef HTL_EXTRA_LOCKS
     using lock_guard = std::lock_guard<std::mutex>;
     mutable std::mutex mJobDequeMutex;
 #endif
@@ -39,9 +46,7 @@ private:
 public:
     LocklessDeque()
     {
-        size_t bufferSize = AMOUNT * sizeof(Job*);
-        void* buffer = (void*)malloc(bufferSize);
-        mEntries = (Job**)buffer;
+        mEntries = (Job**)malloc(AMOUNT * sizeof(Job*));
     }
 
     ~LocklessDeque()
@@ -55,12 +60,12 @@ public:
         int_fast32_t front = mFront;
         if (back <= front) return 0;
 
-        return (back - front);
+        return (static_cast<size_t>(back) - front);
     }
 
     bool HasExecutableJobs() const
     {
-#ifdef EXTRA_LOCKS
+#ifdef HTL_EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
         int_fast32_t back = mBack;
@@ -86,30 +91,18 @@ public:
 
     void PushBack(Job* job)
     {
-#ifdef EXTRA_LOCKS
+#ifdef HTL_EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
-        /*
         // naive way of adding and assume we are fine...
-        int_fast32_t back = mBack.fetch_add(1);
-        mEntries[jobIndex] = job;
-        */
-
-        // more secure way with CAS because own thread could pop-push because of dependencies!
-        int_fast32_t back = mBack;
-        do mEntries[back] = job;
-        while (!mBack.compare_exchange_weak(back, back + 1));
-
-        HTL_LOGT(ThreadId, "=> Pushed_back job " << job->GetName() << " for size: " << (mBack - mFront) <<
-            ", front: " << mFront <<
-            ", back: " << mBack <<
-            ", index: " << (back));
+        mEntries[mBack.fetch_add(1)] = job;
+        HTL_LOGT(ThreadId, "=> Pushed_back job " << job->GetName() << ", front: " << mFront << ", back: " << mBack);
     }
 
     // pull from private FIFO end, allows to return not executable job for reordering
     Job* PopFront(bool allowOpenDependencies = false)
     {
-#ifdef EXTRA_LOCKS
+#ifdef HTL_EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
         int_fast32_t front = mFront;
@@ -126,9 +119,7 @@ public:
                     return nullptr;
                 }
 
-                HTL_LOGT(ThreadId, "<= Pop_front job size: " << (mBack - mFront) <<
-                    ", front: " << mFront <<
-                    ", back: " << mBack);
+                HTL_LOGT(ThreadId, "<= Pop_front front: " << mFront << ", back: " << mBack);
 
                 // reset boundaries after popping last element
                 if (mFront == mBack && front != 0)
@@ -146,7 +137,7 @@ public:
     // pull from public LIFO end (stealing) or when Front was not executable
     Job* PopBack()
     {
-#ifdef EXTRA_LOCKS
+#ifdef HTL_EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
         int_fast32_t back = mBack;
@@ -167,9 +158,7 @@ public:
                 return nullptr;
             }
 
-            HTL_LOGT(ThreadId, "<= Pop_back job size: " << (mBack - mFront) <<
-                ", front: " << mFront <<
-                ", back: " << mBack);
+            HTL_LOGT(ThreadId, "<= Pop_back front: " << mFront << ", back: " << mBack);
 
             /* only reset boundaries for pop in own thread
             // reset boundaries after popping last element
@@ -190,7 +179,7 @@ public:
 
     void Print() const
     {
-#ifdef EXTRA_LOCKS
+#ifdef HTL_EXTRA_LOCKS
         lock_guard lock(mJobDequeMutex);
 #endif
         int_fast32_t front = mFront;

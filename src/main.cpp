@@ -5,17 +5,16 @@
 
 // TODO:
 // ===================
-// - Measure and put results in README.md (nive to have)
-// - Mention alignment against false sharing
+// - Measure and put results in README.md (nice to have)
 // - Remove mX for public variables
 
 // optional
 // ------------
 // - Fix LIFO / FIFO for private/public end (for better performance)
-// - Allocate enough memory from outside and provide, allow resize/shrink (optional)
-// - Notify when jobs are finished (optional)
-// - Enable lockless variant via parameter instead of macro (optional)
-// - Do we need threadlocal variables or are we fine with our implementation? (optional)
+// - Allocate enough memory from outside and provide, allow resize/shrink
+// - Notify when jobs are finished
+// - Enable lockless variant via parameter instead of macro
+// - Do we want to use threadlocal variables or are we fine with our implementation?
 
 
 // Problems and take aways:
@@ -28,9 +27,9 @@
 //    this situation leads to a deadlock!
 // -------------------------------------------------------------------------------------------------------
 //    In a first iteration, jobs where sorted by open dependencies and pushed to worker queues in a order
-//    so that they can be executed, but because of possible reorderings this solution was not stable.
+//    so that they can be executed, but because of possible cpu reorderings this solution was not stable.
 // -------------------------------------------------------------------------------------------------------
-//    A second attempt was, that if a worker pops a job and determines it is not executable,
+//    A second attempt was, if a worker pops a job and determines it is not executable,
 //    the job is than pushed back at the back of the queue.
 //    While this looked like a promising implementation, it could happen that one worker keeps reordering
 //    its open jobs, thus exceeding the allocated memory boundaries
@@ -38,8 +37,7 @@
 //    To eliminate the growing boundary counters it was necessary to reset them after each successfull main frame
 //    but this was not enough because if other threads work longer on jobs which have dependencies,
 //    the reordering can still happen on the current active thread
-//    A (hopefully) final solution was to reset the boundaries everytime the queue pops its last item,
-//    which additionally slows down the lockless version
+//    A (hopefully) final solution was to reset the boundaries everytime the queue pops its last item.
 
 // o Another Problem were spurious wakeups, where the workers gets notified by the conditional and want to start
 //    working because their queue size > 0. But as they try to get an exectuable job, it turns out all of them are not executable
@@ -54,11 +52,8 @@
 //    But then the system wakes the same thread up and again checks the conditional etc...
 //
 //    By using a build with WAIT_FOR_AVAILABLE_JOBS enabled, it can be observed that no thread is woken up without work to do :D
-//    Sadly, this in fact decreases the overall performance :/
-//       On my machine the release build with 7 threads needs about 8.5 ms for each frame,
-//       without the "optimization" of eliminating spurious wakeups, each frame almost always achieves the theoretically fastest execution of 5.6 ms
-//       With only 2 threads the standard implementation takes on average 7.3 ms,
-//       while our JobSystem waiting implementation finished after about 9.3 ms
+//    Looking at the performance measured with the optick profiler in release build with 7 threads, the results were almost identical,
+//    with each frame almost always achieving the theoretically fastest execution time taking 5.7 ms
 //
 // ------------------------------------------------------------------------------------
 
@@ -132,7 +127,7 @@ void UpdateSerial()
 {
 	OPTICK_EVENT();
 
-	// Test if adding rendering first still respect dependencies
+	// Test if adding rendering first still respect order
 	UpdateRendering();
 	UpdateInput();
 	UpdatePhysics();
@@ -145,7 +140,7 @@ void UpdateSerial()
 	HTL_LOGD("All jobs done!");
 }
 
-std::mutex ThreadSafeLogger::mMutex;
+//std::mutex ThreadSafeLogger::mMutex;
 ThreadSafeLogger ThreadSafeLogger::Logger;
 
 /*
@@ -162,7 +157,7 @@ void UpdateParallel(JobSystem& jobSystem)
 	HTL_LOGD("---------- CREATING JOBS ----------");
 	std::vector<Job*> jobs;
 
-#ifdef TEST_DEPENDENCIES
+#ifdef HTL_TEST_DEPENDENCIES
 	// Test if adding rendering first still respect dependencies
 	Job* sound = new Job(&UpdateSound, "sound");
 	Job* rendering = new Job(&UpdateRendering, "rendering");
@@ -172,7 +167,7 @@ void UpdateParallel(JobSystem& jobSystem)
 	Job* collision = new Job(&UpdateCollision, "collision", { animation, particles });
 	Job* physics = new Job(&UpdatePhysics, "physics", { collision, gameElements });
 	Job* input = new Job(&UpdateInput, "input", { physics });
-	
+
 	jobs.push_back(rendering);
 	jobs.push_back(collision);
 	jobs.push_back(physics);
@@ -192,13 +187,13 @@ void UpdateParallel(JobSystem& jobSystem)
 	jobs.push_back(new Job(&UpdateSound, "sound"));
 #endif
 
-#ifdef SORT_JOBS
+#ifdef HTL_SORT_JOBS
 	// sorting jobs by dependency so every thread can start directly
 	// and there are no spurious wakeups, where a thread awakes because the queue is not empty
 	// but than can complete no work because all jobs have open dependencies
 	std::sort(jobs.begin(), jobs.end(), [](Job* l, Job* r) {
 		// TODO: different implementation until LIFO / FIFO order is unified
-		#ifdef USING_LOCKLESS
+		#ifdef HTL_USING_LOCKLESS
 			return l->GetUnfinishedJobs() < r->GetUnfinishedJobs();
 		#else
 			return l->GetUnfinishedJobs() > r->GetUnfinishedJobs();
@@ -293,7 +288,7 @@ int main(int argc, char** argv)
 			if ( isRunningParallel )
 			{
 				UpdateParallel(*jobSystem);
-#ifdef TEST_ONLY_ONE_FRAME
+#ifdef HTL_TEST_ONLY_ONE_FRAME
 				return;
 #endif
 			}

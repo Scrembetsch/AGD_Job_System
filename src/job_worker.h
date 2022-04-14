@@ -1,7 +1,7 @@
 #pragma once
 
 #include "defines.h"
-#ifdef USING_LOCKLESS
+#ifdef HTL_USING_LOCKLESS
 	#include "lockless_deque.h"
 #else
 	#include "locking_deque.h"
@@ -17,7 +17,7 @@ private:
 	std::mutex mAwakeMutex;
 	std::condition_variable mAwakeCondition;
 
-#ifdef USING_LOCKLESS
+#ifdef HTL_USING_LOCKLESS
 	LocklessDeque mJobDeque;
 #else
 	LockingDeque mJobDeque;

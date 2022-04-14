@@ -17,7 +17,7 @@ public:
     static ThreadSafeLogger Logger;
 
 private:
-    static std::mutex mMutex;
+    //static std::mutex mMutex;
 };
 
 struct LogBuffer
