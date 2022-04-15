@@ -6,7 +6,6 @@
 // TODO:
 // ===================
 // - Measure and put results in README.md (nice to have)
-// - Remove mX for public variables
 
 // optional
 // ------------
@@ -307,9 +306,9 @@ int main(int argc, char** argv)
 	if (c == 'd')
 	{
 		HTL_LOG("Debug info:");
-		for (size_t i = 0; i < jobSystem->mNumWorkers; ++i)
+		for (size_t i = 0; i < jobSystem->GetNumWorkers(); ++i)
 		{
-			jobSystem->mWorkers[i].Print();
+			jobSystem->GetWorkers()[i].Print();
 		}
 	}
 	HTL_LOG("Quitting...");

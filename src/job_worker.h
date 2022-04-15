@@ -43,7 +43,7 @@ public:
 	void Shutdown();
 	bool WakeUp();
 
-	JobSystem* mJobSystem{ nullptr };
+	JobSystem* JobSystem{ nullptr };
 
 	void Print()
 	{

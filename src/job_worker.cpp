@@ -96,9 +96,9 @@ void JobWorker::Run()
 #ifdef HTL_WAIT_FOR_AVAILABLE_JOBS
 		if (mJobDeque.HasExecutableJobs() == false)
 		{
-			if (mJobSystem != nullptr)
+			if (JobSystem != nullptr)
 			{
-				mJobSystem->WakeThreads();
+				JobSystem->WakeThreads();
 			}
 			WaitForJob();
 		}
@@ -181,21 +181,14 @@ Job* JobWorker::GetJobFromOwnQueue()
 
 Job* JobWorker::StealJobFromOtherQueue()
 {
-	if (mJobSystem == nullptr || mJobSystem->mNumWorkers < 2) return nullptr;
+	if (JobSystem == nullptr || JobSystem->GetNumWorkers() < 2) return nullptr;
 
-	// TODO: should be a public JobSystem method "pls give me a random worker thread excluding my id"
-	//       so that numWorkers doesn't need to be accessed from outside
-	// try stealing from another random worker queue
-	unsigned int randomNumber = mJobSystem->mRanNumGen.Rand(0, mJobSystem->mNumWorkers);
-	// no stealing from ourselves, try the next one instead
+	// try stealing from another random worker queue (excluding ourselves)
 	// random generated index is the same as internal thread id
-	if (randomNumber == mId)
-	{
-		randomNumber = (randomNumber + 1) % mJobSystem->mNumWorkers;
-	}
+	unsigned int randomNumber = JobSystem->GetRandomWorkerThreadId(mId);
 
 	HTL_LOGT(mId, "Try stealing job from worker queue #" << randomNumber);
-	JobWorker* workerToStealFrom = &mJobSystem->mWorkers[randomNumber];
+	JobWorker* workerToStealFrom = &JobSystem->GetWorkers()[randomNumber];
 	if (Job* job = workerToStealFrom->mJobDeque.PopBack())
 	{
 		// successfully stolen a job from another queues public end

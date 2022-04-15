@@ -7,7 +7,7 @@ JobSystem::JobSystem(uint32_t numThreads)
 {
 	for (uint32_t i = 0; i < mNumWorkers; i++)
 	{
-		mWorkers[i].mJobSystem = this;
+		mWorkers[i].JobSystem = this;
 	}
 }
 
@@ -53,4 +53,26 @@ void JobSystem::WakeThreads()
 		mWorkers[i].WakeUp();
 	}
 	HTL_LOGD("No thread was worthy to wake up... ");
+}
+
+// return a random worker thread id, excluding the one given
+unsigned int JobSystem::GetRandomWorkerThreadId(unsigned int threadId)
+{
+	unsigned int randomNumber = mRanNumGen.Rand(0, mNumWorkers);
+	if (threadId == randomNumber)
+	{
+		// return the following id instead, to prevent stealing from the given (own) thread
+		randomNumber = (randomNumber + 1) % mNumWorkers;
+	}
+	return randomNumber;
+}
+
+uint32_t JobSystem::GetNumWorkers()
+{
+	return mNumWorkers;
+}
+
+JobWorker* JobSystem::GetWorkers()
+{
+	return mWorkers;
 }
