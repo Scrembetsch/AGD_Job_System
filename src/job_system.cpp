@@ -19,7 +19,7 @@ JobSystem::~JobSystem()
 void JobSystem::AddJob(Job* job)
 {
 	mWorkers[mCurrentWorkerId].AddJob(job);
-	// Circle through workers
+	// circle through workers
 	mCurrentWorkerId = (++mCurrentWorkerId) % mNumWorkers;
 }
 
@@ -67,7 +67,7 @@ unsigned int JobSystem::GetRandomWorkerThreadId(unsigned int threadId)
 	return randomNumber;
 }
 
-uint32_t JobSystem::GetNumWorkers()
+uint32_t JobSystem::GetNumWorkers() const
 {
 	return mNumWorkers;
 }

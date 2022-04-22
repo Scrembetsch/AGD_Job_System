@@ -1,6 +1,50 @@
 # AGD_Job_System
 Job System Implemention in C++ for university course "Advanced Game Development"
 
+Other comments and explanations are in source code.
+
+Performance Comparison:
+
+**Serial:**
+![Serial](docs/serial.png)
+
+**Parallel with 1 Thread:**
+![Parallel 1](docs/parallel_1.png)
+
+**Parallel with 2 Threads:**
+![Parallel 2](docs/parallel_2.png)
+
+**Parallel with 3 Threads:**
+![Parallel 3](docs/parallel_3.png)
+
+**Parallel with 7 Threads:**
+![Parallel 7](docs/parallel_7.png)
+
+As we see the fastest possible runtime is already achieved with 3 threads (Reason for this is explained in `main.cpp`).
+# Start arguments
+Start in parallel:
+```
+-p
+``` 
+> Otherwise starts in serial mode
+
+
+Start with different amount of threads:
+```
+-t [numThreads]
+```
+> Otherwise starts with a std::hardware_concurrency() - 1.
+
+# Macro Configuration
+```cpp
+#define HTL_USING_LOCKLESS          // using lockless variant of worker queue
+#define HTL_EXTRA_LOCKS             // still using locks in lockless queue for testing
+#define HTL_TEST_DEPENDENCIES       // test if correct dependencies are met
+#define HTL_WAIT_FOR_AVAILABLE_JOBS // if set, conditional var wakes on executable jobs instead of size > 0
+#define HTL_TEST_ONLY_ONE_FRAME     // main loop returns after one execution
+#define HTL_EXTRA_DEBUG             // additional debug output
+#define HTL_SORT_JOBS               // sort jobs to be allow workers to instantly start after pushing
+```
 
 THEY TERK ERR JERBS!
 

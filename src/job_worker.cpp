@@ -13,7 +13,7 @@
 	#endif
 #endif
 
-// Use static counter to signal Optick which worker this is
+// use static counter to signal Optick which worker this is
 static std::atomic_uint32_t sWorkerCounter{ 0 };
 
 JobWorker::JobWorker() : mId(sWorkerCounter++)
@@ -30,8 +30,6 @@ JobWorker::JobWorker() : mId(sWorkerCounter++)
 		Run();
 	});
 	SetThreadAffinity();
-	// Q: could run thread detached if not wanting them to join?
-	//mThread.detach();
 }
 
 void JobWorker::SetThreadAffinity()
@@ -50,7 +48,7 @@ void JobWorker::SetThreadAffinity()
 
 void JobWorker::AddJob(Job* job)
 {
-	// TODO: fix LIFO / FIFO for private / public end
+	// (*) fix LIFO / FIFO for private / public end
 #ifdef HTL_USING_LOCKLESS
 	mJobDeque.PushBack(job);
 #else
@@ -109,7 +107,7 @@ void JobWorker::Run()
 		}
 #endif
 
-		// Fake job running, so worker doesn't get shut down between getting job and setting JobRunning
+		// fake job running, so worker doesn't get shut down between getting job and setting JobRunning
 		mJobRunning = true;
 		if (Job* job = GetJob())
 		{
@@ -201,7 +199,7 @@ Job* JobWorker::StealJobFromOtherQueue()
 inline void JobWorker::WaitForJob()
 {
 	HTL_LOGT(mId, "Waiting for jobs");
-	// Awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
+	// awake on JobQueue not empty (work to be done) or Running is disabled (shutdown requested)
 	std::unique_lock<std::mutex> lock(mAwakeMutex);
 	mAwakeCondition.wait(lock, [this]
 	{
@@ -228,4 +226,10 @@ bool JobWorker::WakeUp()
 		return true;
 	}
 	return false;
+}
+
+void JobWorker::Print() const
+{
+	HTL_LOG("worker thread " << mId << " running: " << mRunning << ", job running: " << mJobRunning);
+	mJobDeque.Print();
 }

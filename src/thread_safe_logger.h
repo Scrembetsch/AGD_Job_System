@@ -10,14 +10,15 @@ public:
     template <typename T>
     static void log(T& message)
     {
-        //std::lock_guard<std::mutex> lock(mMutex);
+        // somehow this also works without the mutex, but we want to be safe
+        std::lock_guard<std::mutex> lock(mMutex);
         std::cout << message.str();
         message.flush();
     }
     static ThreadSafeLogger Logger;
 
 private:
-    //static std::mutex mMutex;
+    static std::mutex mMutex;
 };
 
 struct LogBuffer

@@ -6,14 +6,6 @@ Job::Job(JobFunc job, std::string name)
 {
 }
 
-// first iteration: allow having one parent to represent dependencies
-/*Job::Job(JobFunc job, std::string name, Job* parent)
-	: mJobFunction{ job }, mName{ name }, mParent{ parent }
-{
-	mParent->mUnfinishedJobs++;
-	HTL_LOGI("Increment dependency on: " << mParent->mName << " by: " << mName << ", unfinishedJobs: " << mParent->mUnfinishedJobs.load());
-}*/
-
 // allow to specify other jobs that define the dependencies
 // by only providing dependencies in ctor and not public method,
 // we prevent creating circular dependencies
@@ -28,7 +20,6 @@ Job::Job(JobFunc job, std::string name, std::vector<Job*> dependants)
 }
 
 // need to check if dependencies are met
-// TODO: are there any additional other constraints so the Job can't be started?
 bool Job::CanExecute() const
 {
 	return (mUnfinishedJobs.load() == 1);
@@ -42,9 +33,8 @@ void Job::Execute()
 
 bool Job::IsFinished() const
 {
-	// TODO: in very rare cases the job correctly updates depending jobs but mUnfinishedJobs is not 0 (yet?)
-	int_fast32_t finished = mUnfinishedJobs.load();
-	return (finished <= 0);
+	// in very rare cases the job correctly updates depending jobs but mUnfinishedJobs is <  0
+	return (mUnfinishedJobs.load() <= 0);
 }
 
 void Job::Finish()
@@ -56,13 +46,6 @@ void Job::Finish()
 	// so creating and using only a local variable
 	int_fast32_t unfinishedJobs = (mUnfinishedJobs.fetch_sub(1) - 1);
 	HTL_LOGI("Job " << mName << " finished with open dependecies: " << unfinishedJobs << " on thread #" << std::this_thread::get_id() << "...");
-
-	// first iteration: allow having one parent to represent dependencies
-	/*if (unfinishedJobs == 0 && mParent)
-	{
-		mParent->mUnfinishedJobs--;
-		HTL_LOGI("having parent " << (mParent ? mParent->mName : "none") << " with now open dependecies: " << (mParent ? (int)mParent->mUnfinishedJobs.load() : 0));
-	}*/
 
 	if (unfinishedJobs == 0 && mDependants.size())
 	{

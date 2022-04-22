@@ -34,8 +34,9 @@ private:
     Job** mEntries;
     std::atomic_int_fast32_t mFront{ 0 }, mBack{ 0 };
 
+    // (**)
     // just using a fixed size large enough for our testing setup
-    // TODO: would need to allocate and provide space from worker thread
+    // would need to allocate and provide space from worker thread
     static const int AMOUNT = 16;
 
 #ifdef HTL_EXTRA_LOCKS
@@ -46,11 +47,14 @@ private:
 public:
     LocklessDeque()
     {
+        // generational clash is the cause for malloc/free
+        // mEntries = new Job*[AMOUNT];
         mEntries = (Job**)malloc(AMOUNT * sizeof(Job*));
     }
 
     ~LocklessDeque()
     {
+        // delete[] mEntries;
         free(mEntries);
     }
 
@@ -124,7 +128,6 @@ public:
                 // reset boundaries after popping last element
                 if (mFront == mBack && front != 0)
                 {
-                    //HTL_LOGTW(ThreadId, "POPPING FRONT last element, resetting boundaries: " << mFront << " - " << mBack);
                     mBack = 0;
                     mFront = 0;
                 }
@@ -160,14 +163,6 @@ public:
 
             HTL_LOGT(ThreadId, "<= Pop_back front: " << mFront << ", back: " << mBack);
 
-            /* only reset boundaries for pop in own thread
-            // reset boundaries after popping last element
-            if (mFront == mBack && front != 0)
-            {
-                HTL_LOGTW(ThreadId, "POPPING FRONT last element, resetting boundaries: " << mFront << " - " << mBack);
-                mBack = 0;
-                mFront = 0;
-            }*/
             return job;
         }
         return nullptr; // queue already empty

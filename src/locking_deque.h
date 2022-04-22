@@ -56,7 +56,7 @@ public:
         mSize++;
     }
 
-    // needed to re-append front job if depencencies are not met yet
+    // needed to re-append front job if dependencies are not met yet
     void PushBack(Job* job)
     {
         lock_guard lock(mJobDequeMutex);

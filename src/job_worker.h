@@ -45,9 +45,5 @@ public:
 
 	JobSystem* JobSystem{ nullptr };
 
-	void Print()
-	{
-		HTL_LOG("worker thread " << mId << " running: " << mRunning << ", job running: " << mJobRunning);
-		mJobDeque.Print();
-	}
+	void Print() const;
 };

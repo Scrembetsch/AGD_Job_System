@@ -1,5 +1,5 @@
 /*
- * Handl Anja <gs20m005>, Tributsch Harald <gs20m008>, Michael Leithner <gs20m012>
+ * Handl Anja <gs20m005>, Tributsch Harald <gs20m008>, Leithner Michael <gs20m012>
  * /
 ------------------------------------------------------------------------------------
 
@@ -9,8 +9,11 @@
 
 // optional
 // ------------
-// - Fix LIFO / FIFO for private/public end (for better performance)
-// - Allocate enough memory from outside and provide, allow resize/shrink
+// (*) Fix LIFO / FIFO for private/public end (for better performance)
+// (**) Allocate enough memory from outside and provide, allow resize/shrink
+
+// further improvements
+// ------------------------
 // - Notify when jobs are finished
 // - Enable lockless variant via parameter instead of macro
 // - Do we want to use threadlocal variables or are we fine with our implementation?
@@ -19,7 +22,7 @@
 // Problems and take aways:
 // ==========================
 // o Dependencies on jobs caused us a lot of headache xD
-//    "Normal" push an pop could be easily implemented, but because of depencencies it could happen
+//    "Normal" push an pop could be easily implemented, but because of dependencies it could happen
 //    that one queue encapsulates a depending, executable job between two dependant ones:
 //          front -> [job #1 depends on job #0] [job #0] [job #2 depends on job #1] <- back
 //    With the usual pop front on private end and pop back from public end available for other workers
@@ -33,13 +36,13 @@
 //    While this looked like a promising implementation, it could happen that one worker keeps reordering
 //    its open jobs, thus exceeding the allocated memory boundaries
 // -------------------------------------------------------------------------------------------------------
-//    To eliminate the growing boundary counters it was necessary to reset them after each successfull main frame
+//    To eliminate the growing boundary counters it was necessary to reset them after each successful main frame
 //    but this was not enough because if other threads work longer on jobs which have dependencies,
 //    the reordering can still happen on the current active thread
-//    A (hopefully) final solution was to reset the boundaries everytime the queue pops its last item.
+//    A (hopefully) final solution was to reset the boundaries every time the queue pops its last item.
 
 // o Another Problem were spurious wakeups, where the workers gets notified by the conditional and want to start
-//    working because their queue size > 0. But as they try to get an exectuable job, it turns out all of them are not executable
+//    working because their queue size > 0. But as they try to get an executable job, it turns out all of them are not executable
 //    because of open dependencies and can be observed building without our WAIT_FOR_AVAILABLE_JOBS macro in the logs:
 //       Yield on thread #4
 //       Yield on thread #4
@@ -139,7 +142,8 @@ void UpdateSerial()
 	HTL_LOGD("All jobs done!");
 }
 
-//std::mutex ThreadSafeLogger::mMutex;
+// defined here, to avoid separate .cpp file for logger
+std::mutex ThreadSafeLogger::mMutex;
 ThreadSafeLogger ThreadSafeLogger::Logger;
 
 /*
@@ -191,7 +195,7 @@ void UpdateParallel(JobSystem& jobSystem)
 	// and there are no spurious wakeups, where a thread awakes because the queue is not empty
 	// but than can complete no work because all jobs have open dependencies
 	std::sort(jobs.begin(), jobs.end(), [](Job* l, Job* r) {
-		// TODO: different implementation until LIFO / FIFO order is unified
+		// (*) different implementation until LIFO / FIFO order is unified
 		#ifdef HTL_USING_LOCKLESS
 			return l->GetUnfinishedJobs() < r->GetUnfinishedJobs();
 		#else
@@ -220,7 +224,8 @@ uint32_t GetNumThreads(const ArgumentParser& argParser)
 	const char* cShortArgName = "-t";
 	const char* cLongArgName = "--threads";
 	// hardware_concurrency return value is only a hint, in case it returns < 2 so we put a max() around it
-	// We also want to keep one available thread "free" so that OS has no problems to schedule main thread
+	// we also want to keep one available thread "free" so that OS has no problems to schedule main thread
+	// if we use multiple threads per logical cpu core, we would trash our cache
 	uint32_t maxThreads = std::max(std::thread::hardware_concurrency(), 2U) - 1;
 
 	uint32_t threads = maxThreads;
@@ -276,7 +281,7 @@ int main(int argc, char** argv)
 	}
 
 	std::atomic<bool> isRunning = true;
-	// We spawn a "main" thread so we can have the actual main thread blocking to receive a potential quit
+	// we spawn a "main" thread so we can have the actual main thread blocking to receive a potential quit
 	std::thread main_runner([ &isRunning, &jobSystem ]()
 	{
 		OPTICK_THREAD("Update");
